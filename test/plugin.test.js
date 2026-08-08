@@ -689,7 +689,7 @@ test("widget host keeps generated HTML in an opaque inner frame and snapshots it
   assert.match(host, /"fill"[\s\S]*?"stroke"[\s\S]*?"font-family"[\s\S]*?"font-size"/);
   assert.match(host, /element\.style\.setProperty\(property, value, "important"\)/);
   assert.doesNotMatch(host, /element\.setAttribute\(property, value\)/);
-  assert.match(host, /upstreamStatus = Number\(response\.headers\.get\("x-penecho-upstream-status"\)\)/);
+  assert.match(host, /response\.headers\.get\("x-coink-upstream-status"\) \|\| response\.headers\.get\("x-penecho-upstream-status"\)/);
   assert.match(server, /"X-CoInk-Upstream-Status":String\(result\.status\)/);
   assert.match(host, /data-penecho-snapshot-background/);
   assert.match(snapshot, /finally\s*\{\s*try\s*\{\s*restoreCompatibleColors\(\);\s*\}\s*finally\s*\{\s*restoreSvgStyles\(\);\s*\}/);
