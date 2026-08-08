@@ -21,8 +21,8 @@ const copied = [];
 for (const file of walk(source)) {
   if (!extensions.has(path.extname(file).toLowerCase()) && !exact.has(path.basename(file))) continue;
   const extension = path.extname(file).toLowerCase();
-  let name = extension === ".dmg" ? `PenEcho-${pkg.version}-mac-${targetArch}.dmg`
-    : extension === ".zip" ? `PenEcho-${pkg.version}-${targetPlatform === "darwin" ? "mac" : "win"}-${targetArch}.zip`
+  let name = extension === ".dmg" ? `CoInk-${pkg.version}-mac-${targetArch}.dmg`
+    : extension === ".zip" ? `CoInk-${pkg.version}-${targetPlatform === "darwin" ? "mac" : "win"}-${targetArch}.zip`
       : path.basename(file), target = path.join(destination, name), suffix = 1;
   while (fs.existsSync(target)) {
     const targetExtension = path.extname(name), stem = path.basename(name, targetExtension);
