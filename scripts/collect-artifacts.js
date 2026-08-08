@@ -31,9 +31,9 @@ for (const file of walk(source)) {
   fs.copyFileSync(file, target);
   copied.push(target);
 }
-const icon = path.join(ROOT, "build", "icons", "penecho.ico");
+const icon = path.join(ROOT, "build", "icons", "coink.ico");
 if (targetPlatform === "win32" && fs.existsSync(icon)) {
-  const target = path.join(destination, "penecho.ico");
+  const target = path.join(destination, "coink.ico");
   fs.copyFileSync(icon, target);
   copied.push(target);
 }
