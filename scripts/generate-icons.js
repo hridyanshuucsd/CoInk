@@ -8,7 +8,7 @@ const png2icons = require("png2icons");
 const ROOT = path.resolve(__dirname, ".."),
   iconRoot = path.join(ROOT, "build", "icons"),
   generated = path.join(iconRoot, "generated"),
-  source = path.join(ROOT, "public", "penecho-mark.png");
+  source = path.join(ROOT, "public", "icon.svg");
 
 async function png(size, output) {
   const markSize = Math.max(1, Math.round(size * .72)), inset = Math.round(size * .035), radius = Math.round(size * .21),
@@ -23,19 +23,19 @@ async function main() {
   fs.mkdirSync(generated, { recursive:true });
   const sizes = [16, 24, 32, 48, 64, 128, 256, 512, 1024], files = new Map();
   for (const size of sizes) {
-    const output = path.join(generated, `penecho-${size}.png`);
+    const output = path.join(generated, `coink-${size}.png`);
     await png(size, output);
     files.set(size, output);
   }
-  fs.copyFileSync(files.get(512), path.join(iconRoot, "penecho.png"));
-  fs.copyFileSync(files.get(1024), path.join(iconRoot, "penecho-1024.png"));
+  fs.copyFileSync(files.get(512), path.join(iconRoot, "coink.png"));
+  fs.copyFileSync(files.get(1024), path.join(iconRoot, "coink-1024.png"));
   const sourcePng = fs.readFileSync(files.get(1024)),
     icns = png2icons.createICNS(sourcePng, png2icons.BICUBIC2, 0),
     ico = png2icons.createICO(sourcePng, png2icons.BICUBIC2, 0, false, true);
   if (!icns || !ico) throw new Error("Unable to encode desktop icon files.");
-  fs.writeFileSync(path.join(iconRoot, "penecho.icns"), icns);
-  fs.writeFileSync(path.join(iconRoot, "penecho.ico"), ico);
-  console.log(`Generated PenEcho desktop icons in ${iconRoot}`);
+  fs.writeFileSync(path.join(iconRoot, "coink.icns"), icns);
+  fs.writeFileSync(path.join(iconRoot, "coink.ico"), ico);
+  console.log(`Generated CoInk desktop icons in ${iconRoot}`);
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
