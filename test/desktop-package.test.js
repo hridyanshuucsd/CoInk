@@ -408,7 +408,7 @@ test("desktop updates resolve published GitHub Releases for each packaged target
   assert.equal(requests.length, 2);
   assert.equal(await manager.download(), true);
   assert.equal(downloads[0].asset.name, "CoInk-0.7.1-mac-arm64.zip");
-  assert.equal(downloads[0].destination, "/tmp/penecho-updates/CoInk-0.7.1-mac-arm64.zip");
+  assert.equal(downloads[0].destination, "/tmp/coink-updates/CoInk-0.7.1-mac-arm64.zip");
   assert.ok(states.some(state => state.status === "downloading" && state.progress === 47.2));
   assert.equal(manager.getState().status, "ready");
   assert.equal(await manager.install(), true);
