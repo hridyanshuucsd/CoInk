@@ -27,6 +27,7 @@ const { DEFAULT_REASONING_EFFORT, apiReasoningParameters, normalizeReasoningEffo
 const { testConfiguredProvider } = require("../cli/main.js");
 const { NORMALIZE_TYPESET_POLICY } = require("./typeset.js");
 const { verifyMath } = require("./symbolic-math.js");
+const { createRealtimeCall, realtimeConfiguration } = require("./realtime.js");
 const { resolveWidgetEditPatchCommands, widgetSourceMirrorsHtml, widgetPatchContract, widgetPatchFiles } = require("./widget-patch.js");
 const PLUGIN_FORMAT = require("../../public/plugins.js");
 const DRAW = require("../../public/draw.js");
