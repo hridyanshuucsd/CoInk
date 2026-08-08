@@ -3005,6 +3005,19 @@ const server = http.createServer(async (req, res) => {
     if (!fs.existsSync(file)) return send(res, 404, "No debug model exchange yet.\n", "text/plain; charset=utf-8");
     return send(res, 200, fs.readFileSync(file,"utf8"), "application/json; charset=utf-8");
   }
+  if (req.method === "POST" && url.pathname === "/api/math/verify") {
+    try {
+      const authorizationError = browserRequestError(req);
+      if (authorizationError) return send(res, 403, { error:authorizationError });
+      if (!isJsonRequest(req)) return send(res, 415, { error:"Math verification requires application/json." });
+      const input = await readJson(req, 8 * 1024), values = [input?.statement, input?.left, input?.right, input?.from, input?.to].filter(value => value !== undefined);
+      if (!values.length || values.some(value => typeof value !== "string" || !value.trim() || value.length > 1000)) return send(res, 400, { error:"Provide non-empty math strings up to 1000 characters." });
+      return send(res, 200, verifyMath(input));
+    } catch (error) {
+      const status = error?.message === "Request too large" ? 413 : 400;
+      return send(res, status, { error:error?.message || "Unable to verify math." });
+    }
+  }
   if (req.method === "POST" && url.pathname === "/api/ai/command") {
     const requestId = crypto.randomUUID(), started = Date.now(), ip = req.socket.remoteAddress,
       clientController = new AbortController(), providerSnapshot = requestProviderSnapshot(req),
