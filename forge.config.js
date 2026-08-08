@@ -95,16 +95,6 @@ module.exports = {
   },
   makers:[
     {
-      name:desktopModule("@electron-forge/maker-dmg"),
-      platforms:["darwin"],
-      config:{
-        name:`CoInk-${pkg.version}`,
-        title:"CoInk",
-        icon:`${ICON}.icns`,
-        overwrite:true,
-      },
-    },
-    {
       name:desktopModule("@electron-forge/maker-zip"),
       platforms:["darwin"],
       config:{},
