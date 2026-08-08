@@ -854,9 +854,10 @@
   function validate(cmds, aiColor = state.aiColor, widgetEditTarget = null, visibleRect = null) {
     if (!Array.isArray(cmds)) return [];
     let plotPixels = 0,
+      generatedImageSlots = 1,
       widgetSlots = widgetEditTarget ? 1 : Math.max(0, MAX_VISIBLE_WIDGETS - state.widgets.length),
       widgetPluginIds = new Set(enabledPluginDescriptors().map((plugin) => plugin.id));
-    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "draw", "erase"];
+    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"];
     if (widgetPluginIds.size) acceptedTools.push("html_widget");
     if (widgetPluginIds.has("flowchart")) acceptedTools.push("diagram_source");
     const validated = cmds
@@ -904,6 +905,11 @@
           }
           c.color = aiColor;
           plotPixels += c.w * c.h;
+        }
+        if (c.tool === "generate_image") {
+          if (generatedImageSlots <= 0 || !n(c.x) || !n(c.y) || !n(c.w, 256, 6000) || !n(c.h, 256, 6000) || c.w * c.h > 12000000 || Math.max(c.w / c.h, c.h / c.w) > 3 || c.x + c.w > SIZE || c.y + c.h > SIZE || typeof c.prompt !== "string" || !c.prompt.trim() || c.prompt.length > 2000) return null;
+          c.prompt = c.prompt.trim();
+          generatedImageSlots--;
         }
         if (c.tool === "draw") {
           const normalized = DRAW?.normalize(c, SIZE);
