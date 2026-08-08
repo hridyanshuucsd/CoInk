@@ -1204,6 +1204,7 @@
   document.querySelectorAll(".radial-action").forEach((button) => button.setAttribute("tabindex", "-1"));
   setPluginTemplate("simple");
   applyLanguage();
+  initializeVoiceTutor();
   setWidgetShadowEnabled(state.widgetShadowEnabled);
   applyTheme(state.theme);
   resetCanvasCursor();
