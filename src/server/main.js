@@ -28,6 +28,7 @@ const { testConfiguredProvider } = require("../cli/main.js");
 const { NORMALIZE_TYPESET_POLICY } = require("./typeset.js");
 const { verifyMath } = require("./symbolic-math.js");
 const { createRealtimeCall, realtimeConfiguration } = require("./realtime.js");
+const { generateImage, imageGenerationConfiguration } = require("./image-generation.js");
 const { resolveWidgetEditPatchCommands, widgetSourceMirrorsHtml, widgetPatchContract, widgetPatchFiles } = require("./widget-patch.js");
 const PLUGIN_FORMAT = require("../../public/plugins.js");
 const DRAW = require("../../public/draw.js");
