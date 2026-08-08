@@ -542,7 +542,7 @@ test("unsigned macOS updater validates the extracted app and schedules an atomic
           fs.mkdirSync(path.join(args[3], "CoInk.app", "Contents"), { recursive:true });
           return "";
         }
-        return args[1] === "CFBundleIdentifier" ? "app.penecho.desktop" : "0.7.2";
+        return args[1] === "CFBundleIdentifier" ? "io.github.hridyanshuucsd.coink" : "0.7.2";
       },
       spawnImpl:(command, args, options) => {
         spawns.push({ command, args, options });
