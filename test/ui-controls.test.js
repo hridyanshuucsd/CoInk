@@ -554,7 +554,7 @@ test("plugin manager is a centered dynamic catalog with General HTML and bundled
   assert.doesNotMatch(handleConnectionAction, /updateConnection\("activate"/);
   assert.match(app, /fetch\("\/api\/plugins\/improve"[\s\S]*?headers:aiRequestHeaders/);
   assert.match(app, /fetch\("\/api\/ai\/command"[\s\S]*?headers:\s*aiRequestHeaders/);
-  assert.match(functionSource(app, "validate"), /acceptedTools = \["write_text", "handwrite_text", "draw_formula", "plot_function", "draw", "erase"\]/);
+  assert.match(functionSource(app, "validate"), /acceptedTools = \["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"\]/);
   assert.doesNotMatch(functionSource(app, "validate"), /animate_scene/);
   assert.match(functionSource(app, "renderPluginOptions"), /localizedManifestValue[\s\S]*?pluginPromptEstimate[\s\S]*?copy\.append\(titleRow, help, meta\)/);
   assert.match(functionSource(app, "renderPluginOptions"), /plugin\.id === "general" \? t\("pluginPublicHttps"\)/);
@@ -661,7 +661,7 @@ test("simple native draw is loaded and rendered without enabling legacy animatio
     prepare = functionSource(app, "preparePendingItem");
   assert.match(html, /<script src="draw\.js"><\/script>[\s\S]*?<script src="app\.js"><\/script>/);
   assert.match(app, /const DRAW = window\.PENECHO_DRAW/);
-  assert.match(validate, /acceptedTools = \["write_text", "handwrite_text", "draw_formula", "plot_function", "draw", "erase"\]/);
+  assert.match(validate, /acceptedTools = \["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"\]/);
   assert.match(validate, /c\.tool === "draw"[\s\S]*?DRAW\?\.normalize\(c, SIZE\)/);
   assert.match(prepare, /c\.tool === "draw"[\s\S]*?DRAW\.render\(c, offscreen, c\.color\)/);
   assert.doesNotMatch(validate, /animate_scene/);
