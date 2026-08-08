@@ -49,19 +49,25 @@ function executableName(base, platform) {
   return platform === "win32" ? `${base}.exe` : base;
 }
 
+function pathForPlatform(platform, ...values) {
+  if (platform === "win32") return path.win32;
+  return values.some(value => path.win32.isAbsolute(String(value || ""))) ? path : path.posix;
+}
+
 function managedCliPath(provider, options = {}) {
   const platform = options.platform || process.platform,
-    home = path.resolve(options.home || ""),
-    stateDir = path.resolve(options.stateDir || ""),
+    platformPath = pathForPlatform(platform, options.home, options.stateDir),
+    home = platformPath.resolve(options.home || ""),
+    stateDir = platformPath.resolve(options.stateDir || ""),
     item = definition(provider, platform);
   if (!home || !stateDir) throw new Error("Desktop application paths are unavailable.");
   if (provider === "codex-cli") {
-    return path.join(stateDir, "tools", "codex", "bin", executableName(item.executable, platform));
+    return platformPath.join(stateDir, "tools", "codex", "bin", executableName(item.executable, platform));
   }
   if (provider === "kimi-cli") {
-    return path.join(stateDir, "tools", "kimi", "bin", executableName(item.executable, platform));
+    return platformPath.join(stateDir, "tools", "kimi", "bin", executableName(item.executable, platform));
   }
-  return path.join(home, ".local", "bin", executableName(item.executable, platform));
+  return platformPath.join(home, ".local", "bin", executableName(item.executable, platform));
 }
 
 function powershellExecutable(env) {
@@ -142,16 +148,17 @@ async function downloadInstaller(provider, destination, options = {}) {
 
 function installInvocation(provider, script, options = {}) {
   const platform = options.platform || process.platform,
-    home = path.resolve(options.home || ""),
-    stateDir = path.resolve(options.stateDir || ""),
+    platformPath = pathForPlatform(platform, options.home, options.stateDir),
+    home = platformPath.resolve(options.home || ""),
+    stateDir = platformPath.resolve(options.stateDir || ""),
     env = { ...process.env, ...options.env, HOME:home, USERPROFILE:home },
     item = definition(provider, platform);
   if (provider === "codex-cli") {
     env.CODEX_NON_INTERACTIVE = "1";
-    env.CODEX_INSTALL_DIR = path.dirname(managedCliPath(provider, { platform, home, stateDir }));
+    env.CODEX_INSTALL_DIR = platformPath.dirname(managedCliPath(provider, { platform, home, stateDir }));
   }
   if (provider === "kimi-cli") {
-    env.KIMI_INSTALL_DIR = path.dirname(path.dirname(managedCliPath(provider, { platform, home, stateDir })));
+    env.KIMI_INSTALL_DIR = platformPath.dirname(platformPath.dirname(managedCliPath(provider, { platform, home, stateDir })));
     env.KIMI_NO_MODIFY_PATH = "1";
   }
   if (platform === "win32") {
@@ -172,10 +179,11 @@ function installInvocation(provider, script, options = {}) {
 
 async function installCli(provider, options = {}) {
   const platform = options.platform || process.platform,
-    home = path.resolve(options.home || ""),
-    stateDir = path.resolve(options.stateDir || ""),
+    platformPath = pathForPlatform(platform, options.home, options.stateDir),
+    home = platformPath.resolve(options.home || ""),
+    stateDir = platformPath.resolve(options.stateDir || ""),
     extension = platform === "win32" ? "ps1" : "sh",
-    script = path.join(stateDir, "installers", `${provider}.${extension}`),
+    script = platformPath.join(stateDir, "installers", `${provider}.${extension}`),
     runner = options.runner || runProcess;
   const item = await downloadInstaller(provider, script, { platform, fetchImpl:options.fetchImpl });
   try {
