@@ -647,7 +647,7 @@ test("process-lifetime PIN gates the Canvas and local APIs, then clears on resta
     assert.equal(authenticatedPinRequest.status,400);
 
     const unlockedPage=await fetch(running.origin,{headers:{Cookie:browserACookie}});
-    assert.match(await unlockedPage.text(),/Handwritten AI Canvas/);
+    assert.match(await unlockedPage.text(),/CoInk Tutor \| Voice and handwriting canvas/);
     const browserBStatus=await fetch(`${running.origin}/api/local-access/status`).then(response=>response.json());
     assert.equal(browserBStatus.mode,"pin");
     assert.equal(browserBStatus.unlocked,false);
