@@ -371,11 +371,11 @@ test("desktop updates resolve published GitHub Releases for each packaged target
           name:"CoInk 0.7.1",
           body:"## What's new\n- Silent update notifications\n- Update progress",
           published_at:"2026-07-01T00:00:00Z",
-          html_url:"https://github.com/penecho/penecho/releases/tag/v0.7.1",
+          html_url:"https://github.com/hridyanshuucsd/CoInk/releases/tag/v0.7.1",
           assets:[{
             name:"CoInk-0.7.1-mac-arm64.zip",
             size:123456,
-            browser_download_url:"https://github.com/penecho/penecho/releases/download/v0.7.1/CoInk-0.7.1-mac-arm64.zip",
+            browser_download_url:"https://github.com/hridyanshuucsd/CoInk/releases/download/v0.7.1/CoInk-0.7.1-mac-arm64.zip",
             digest:"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           }],
         }),
@@ -434,7 +434,7 @@ test("desktop update checks stay silent when current and reset dismissal on a ne
       body:"Current release",
       assets:[{
         name:"CoInk-Setup-0.6.0-win-x64.exe",
-        browser_download_url:"https://github.com/penecho/penecho/releases/download/v0.6.0/CoInk-Setup-0.6.0-win-x64.exe",
+        browser_download_url:"https://github.com/hridyanshuucsd/CoInk/releases/download/v0.6.0/CoInk-Setup-0.6.0-win-x64.exe",
       }],
     }),
   });
@@ -465,7 +465,7 @@ test("unsigned desktop updater accepts only exact CoInk release assets", () => {
     version:"0.7.2",
     assets:[
       { name:"CoInk-0.7.2-mac-arm64.zip", url:"https://example.com/CoInk.zip" },
-      { name:"CoInk-Setup-0.7.2-win-x64.exe", url:"https://github.com/penecho/penecho/releases/download/v0.7.2/CoInk-Setup-0.7.2-win-x64.exe" },
+      { name:"CoInk-Setup-0.7.2-win-x64.exe", url:"https://github.com/hridyanshuucsd/CoInk/releases/download/v0.7.2/CoInk-Setup-0.7.2-win-x64.exe" },
     ],
   };
   assert.equal(releaseAsset(release, "darwin", "arm64"), null);
@@ -484,7 +484,7 @@ test("unsigned desktop update download reports progress and verifies GitHub SHA-
     await downloadReleaseAsset({
       asset:{
         name:path.basename(destination),
-        url:"https://github.com/penecho/penecho/releases/download/v0.7.2/CoInk-0.7.2-mac-arm64.zip",
+        url:"https://github.com/hridyanshuucsd/CoInk/releases/download/v0.7.2/CoInk-0.7.2-mac-arm64.zip",
         size:content.length,
         digest:`sha256:${digest}`,
       },
@@ -502,7 +502,7 @@ test("unsigned desktop update download reports progress and verifies GitHub SHA-
     await assert.rejects(downloadReleaseAsset({
       asset:{
         name:path.basename(destination),
-        url:"https://github.com/penecho/penecho/releases/download/v0.7.2/CoInk-0.7.2-mac-arm64.zip",
+        url:"https://github.com/hridyanshuucsd/CoInk/releases/download/v0.7.2/CoInk-0.7.2-mac-arm64.zip",
         digest:`sha256:${"0".repeat(64)}`,
       },
       destination,
