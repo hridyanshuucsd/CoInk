@@ -855,7 +855,7 @@
     let plotPixels = 0,
       widgetSlots = widgetEditTarget ? 1 : Math.max(0, MAX_VISIBLE_WIDGETS - state.widgets.length),
       widgetPluginIds = new Set(enabledPluginDescriptors().map((plugin) => plugin.id));
-    const acceptedTools = ["write_text", "draw_formula", "plot_function", "draw", "erase"];
+    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "draw", "erase"];
     if (widgetPluginIds.size) acceptedTools.push("html_widget");
     if (widgetPluginIds.has("flowchart")) acceptedTools.push("diagram_source");
     const validated = cmds
@@ -870,6 +870,16 @@
           c.fontSize = matchedTextFontSize(c.fontSize, c.text);
           c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
           c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.35));
+          c.color = aiColor;
+          if (c.maxWidth < c.fontSize) return null;
+          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
+        }
+        if (c.tool === "handwrite_text") {
+          if (!n(c.x) || !n(c.y) || typeof c.text !== "string" || !Number.isFinite(c.maxWidth)) return null;
+          c.text = c.text.slice(0, AI_TEXT_MAX_LENGTH);
+          c.fontSize = matchedFontSize(c.fontSize);
+          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
+          c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.3));
           c.color = aiColor;
           if (c.maxWidth < c.fontSize) return null;
           c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
