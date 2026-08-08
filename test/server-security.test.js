@@ -1994,7 +1994,7 @@ test("local plugin discovery is constrained and widget prompting is conditional"
   const source = fs.readFileSync(path.join(ROOT, "src", "server", "main.js"), "utf8"),
     basePrompt = /const SYSTEM_PROMPT = `([\s\S]*?)`;\s*\n\s*const ACTIVE_SYSTEM_PROMPT_BASE/.exec(source)?.[1] || "";
   assert.doesNotMatch(basePrompt, /html_widget|enabledPlugins/);
-  assert.match(basePrompt, /If the newest input is non-empty but unclear, incomplete, or lacks enough context, return one short write_text clarification question stating what is missing\./);
+  assert.match(basePrompt, /If the newest input is non-empty but unclear, incomplete, or lacks enough context, return one short handwrite_text clarification question stating what is missing\./);
   assert.match(basePrompt, /Use intent none with an empty commands array only when there is genuinely no new input\./);
   assert.doesNotMatch(basePrompt, /If genuinely unreadable or incomplete, use intent none/);
   assert.match(basePrompt, /existing canvas objects as actors, anchors, background, or targets[\s\S]*?overlay only the newly requested paths, effects, or actions[\s\S]*?never recreate those objects/);
