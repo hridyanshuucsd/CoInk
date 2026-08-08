@@ -1,0 +1,16 @@
+{
+  "name": "coink-tutor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A shared handwritten canvas where an AI tutor can see, speak, and write alongside a student.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "check": "node --check server.mjs && node --check public/app.js && node --check public/canvas.js && node --check public/handwriting.js && node --check public/realtime.js"
+  },
+  "engines": {
+    "node": ">=20.3"
+  },
+  "license": "MIT"
+}
