@@ -53,7 +53,7 @@ async function fetchLatestNpmVersion(packageName = PACKAGE_JSON.name, options = 
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), remainingMs);
     try {
       const response = await fetchImpl(url, {
-        headers:{ Accept:"application/json", "User-Agent":`penecho/${PACKAGE_JSON.version}` },
+        headers:{ Accept:"application/json", "User-Agent":`${PACKAGE_JSON.name}/${PACKAGE_JSON.version}` },
         redirect:"error",
         signal:controller.signal,
       });
