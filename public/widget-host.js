@@ -951,7 +951,7 @@
           body:JSON.stringify({ url:message.url }),
         }),
         body = await response.arrayBuffer(),
-        upstreamStatus = Number(response.headers.get("x-penecho-upstream-status"));
+        upstreamStatus = Number(response.headers.get("x-coink-upstream-status") || response.headers.get("x-penecho-upstream-status"));
       if (body.byteLength > 5 * 1024 * 1024) throw Error("The public data response is too large");
       if (!response.ok) {
         let detail = "", errorText = "";
