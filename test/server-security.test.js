@@ -2015,7 +2015,8 @@ test("local plugin discovery is constrained and widget prompting is conditional"
   assert.match(source, /Width-only or height-only resizing changes the layout viewport[\s\S]*?SVG or professional-graphic bounds tight on every side with only slight padding/);
   assert.match(source, /Public HTTPS reference links are allowed[\s\S]*?target="_blank"[\s\S]*?noopener noreferrer[\s\S]*?never navigate the widget itself/);
   assert.match(source, /const PLUGIN_ROUTING_PROMPT = `General HTML is mandatory and always enabled/);
-  assert.match(source, /Use native draw only[\s\S]*?10 or fewer basic primitives or line segments[\s\S]*?larger static visuals[\s\S]*?General HTML/);
+  assert.match(source, /Use native draw only[\s\S]*?10 or fewer basic primitives or line segments[\s\S]*?larger deterministic visuals[\s\S]*?General HTML/);
+  assert.match(source, /Reserve generate_image for an explicitly requested raster image[\s\S]*?never a precise diagram, flowchart, chart, or mathematical construction/);
   assert.match(source, /filterCapabilityCommands[\s\S]*?command\?\.tool !== "animate_scene"/);
   assert.match(source, /current or changing public information such as news[\s\S]*?network-backed html_widget[\s\S]*?refreshSeconds interval[\s\S]*?update frequency and rate limits/);
   assert.match(source, /if \(pluginsEnabled\) sections\.push\(PLUGIN_ROUTING_PROMPT, PLUGIN_SYSTEM_PROMPT\)/);
