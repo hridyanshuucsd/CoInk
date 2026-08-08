@@ -93,7 +93,7 @@ test("0.9.0 changelog is a one-page dialog shown once after the feature tour", (
   assert.match(layer, /id="changelogDialog"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="changelogTitle"[^>]*aria-describedby="changelogIntro"/);
   for (const id of ["changelogClose", "changelogTitle", "changelogIntro", "changelogCurrentVersion", "changelogEarlierTitle", "changelogDone"]) assert.match(layer, new RegExp(`id="${id}"`));
   assert.match(layer, />0\.9\.0</);
-  assert.match(layer, /class="changelog-demo"[\s\S]*?penecho_plugins\.webp[\s\S]*?loading="eager"/);
+  assert.doesNotMatch(layer, /penecho_plugins\.webp|github\.com\/penecho/);
   assert.doesNotMatch(layer, /class="changelog-plugin-note"/);
   assert.match(app, /CHANGELOG_STORAGE_KEY = "penecho-changelog-seen"/);
   assert.match(app, /CHANGELOG_VERSION = "0\.9\.0"/);
@@ -109,7 +109,7 @@ test("0.9.0 changelog is a one-page dialog shown once after the feature tour", (
     assert.match(app, new RegExp(`${key}:`), `missing English ${key}`);
     assert.match(zh, new RegExp(`${key}:`), `missing Chinese ${key}`);
   }
-  assert.match(layer, /class="changelog-demo"[\s\S]*data-i18n="changelogConnections"[\s\S]*data-i18n="changelogProgress"/);
+  assert.match(layer, /class="changelog-scroll"[\s\S]*data-i18n="changelogConnections"[\s\S]*data-i18n="changelogProgress"/);
   assert.match(app, /changelogConnections:[^\n]*ten API or CLI connections[^\n]*one click/);
   assert.match(app, /changelogProjects:[^\n]*server canvases[^\n]*v2 bundles/);
   assert.match(app, /changelogRefine:[^\n]*standard unified diff[^\n]*reduces tokens/);
