@@ -113,9 +113,7 @@ async function downloadReleaseAsset(options) {
 }
 
 function macBundlePath(executable) {
-  const marker = `.app${path.sep}Contents${path.sep}MacOS${path.sep}`,
-    index = String(executable || "").lastIndexOf(marker);
-  return index < 0 ? "" : String(executable).slice(0, index + 4);
+  return String(executable || "").match(/^(.*?\.app)[\\/]Contents[\\/]MacOS[\\/]/)?.[1] || "";
 }
 
 function runFile(command, args) {
