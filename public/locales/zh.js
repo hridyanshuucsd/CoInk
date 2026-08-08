@@ -276,6 +276,7 @@ window.PENECHO_LOCALES.zh = {
   aiSendingRequest: "正在发送请求...",
   aiRequestReceived: "CoInk 已收到请求",
   aiPreparingImage: "正在准备模型输入...",
+  aiGeneratingImage: "正在生成图像…",
   aiConnecting: "正在连接模型...",
   aiWaitingResponse: "正在等待模型响应...",
   aiReceivingResponse: "正在接收模型数据...",
