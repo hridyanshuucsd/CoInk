@@ -135,10 +135,13 @@ function resolveConfiguration(args, options = {}) {
     cwd = path.resolve(options.cwd || process.cwd()),
     home = path.resolve(options.home || os.homedir()),
     packageRoot = path.resolve(options.packageRoot || PACKAGE_ROOT),
-    defaultStateDir = sourceEnv.PENECHO_STATE_DIR ? path.resolve(cwd, sourceEnv.PENECHO_STATE_DIR) : path.join(home, ".penecho"),
+    coinkStateDir = path.join(home, ".coink"),
+    legacyStateDir = path.join(home, ".penecho"),
+    requestedStateDir = sourceEnv.COINK_STATE_DIR || sourceEnv.PENECHO_STATE_DIR,
+    defaultStateDir = requestedStateDir ? path.resolve(cwd, requestedStateDir) : !args.config && !fs.existsSync(path.join(coinkStateDir, "config.env")) && fs.existsSync(path.join(legacyStateDir, "config.env")) ? legacyStateDir : coinkStateDir,
     configFile = args.config ? path.resolve(cwd, args.config) : path.join(defaultStateDir, "config.env"),
     fileEnv = loadEnvFile(configFile),
-    configuredStateDir = sourceEnv.PENECHO_STATE_DIR || fileEnv.PENECHO_STATE_DIR,
+    configuredStateDir = sourceEnv.COINK_STATE_DIR || sourceEnv.PENECHO_STATE_DIR || fileEnv.COINK_STATE_DIR || fileEnv.PENECHO_STATE_DIR,
     stateDir = configuredStateDir ? path.resolve(cwd, configuredStateDir) : defaultStateDir;
   const env = { ...fileEnv, ...sourceEnv };
   if (args.provider) env.AI_PROVIDER = args.provider;
@@ -156,6 +159,7 @@ function resolveConfiguration(args, options = {}) {
     }
     if (args.effort !== null) env.AI_EFFORT = args.effort;
   }
+  env.COINK_STATE_DIR = stateDir;
   env.PENECHO_STATE_DIR = stateDir;
   return {
     env,
