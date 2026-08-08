@@ -635,6 +635,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       aiSendingRequest: "Sending request...",
       aiRequestReceived: "Request received by CoInk",
       aiPreparingImage: "Preparing model input...",
+      aiGeneratingImage: "Generating image...",
       aiConnecting: "Connecting to the model...",
       aiWaitingResponse: "Waiting for the model...",
       aiReceivingResponse: "Receiving model response...",
@@ -10234,9 +10235,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function validate(cmds, aiColor = state.aiColor, widgetEditTarget = null, visibleRect = null) {
     if (!Array.isArray(cmds)) return [];
     let plotPixels = 0,
+      generatedImageSlots = 1,
       widgetSlots = widgetEditTarget ? 1 : Math.max(0, MAX_VISIBLE_WIDGETS - state.widgets.length),
       widgetPluginIds = new Set(enabledPluginDescriptors().map((plugin) => plugin.id));
-    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "draw", "erase"];
+    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"];
     if (widgetPluginIds.size) acceptedTools.push("html_widget");
     if (widgetPluginIds.has("flowchart")) acceptedTools.push("diagram_source");
     const validated = cmds
@@ -10284,6 +10286,11 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
           }
           c.color = aiColor;
           plotPixels += c.w * c.h;
+        }
+        if (c.tool === "generate_image") {
+          if (generatedImageSlots <= 0 || !n(c.x) || !n(c.y) || !n(c.w, 256, 6000) || !n(c.h, 256, 6000) || c.w * c.h > 12000000 || Math.max(c.w / c.h, c.h / c.w) > 3 || c.x + c.w > SIZE || c.y + c.h > SIZE || typeof c.prompt !== "string" || !c.prompt.trim() || c.prompt.length > 2000) return null;
+          c.prompt = c.prompt.trim();
+          generatedImageSlots--;
         }
         if (c.tool === "draw") {
           const normalized = DRAW?.normalize(c, SIZE);
@@ -10413,6 +10420,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
           image = await formulaImage(c.latex, c.fontSize, c.color);
         } else if (c.tool === "plot_function") {
           image = plot(c);
+        } else if (c.tool === "generate_image") {
+          image = await generatedImageDraft(c);
         } else if (c.tool === "animate_scene") {
           pendingCommand = ANIMATION.normalize(c, SIZE);
           image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
@@ -10454,6 +10463,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     else if (c.tool === "handwrite_text") image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
     else if (c.tool === "draw_formula") image = await formulaImage(c.latex, c.fontSize, c.color);
     else if (c.tool === "plot_function") image = plot(c);
+    else if (c.tool === "generate_image") image = await generatedImageDraft(c);
     else if (c.tool === "animate_scene") {
       pendingCommand = ANIMATION.normalize(c, SIZE);
       image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
@@ -10583,6 +10593,33 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     image.revealRowHeight = naturalHeight;
     image.naturalWidth = image.logicalWidth = naturalWidth;
     image.naturalHeight = image.logicalHeight = naturalHeight;
+    return image;
+  }
+  async function generatedImageDraft(command) {
+    setStatusKey("aiGeneratingImage");
+    const response = await fetch("/api/images/generate", {
+        method:"POST",
+        credentials:"same-origin",
+        headers:aiRequestHeaders({ "Content-Type":"application/json" }),
+        body:JSON.stringify({ prompt:command.prompt, width:command.w, height:command.h }),
+      }),
+      result = await response.json().catch(() => null);
+    if (!response.ok || typeof result?.dataUrl !== "string") throw Error(result?.error || `Image generation failed (HTTP ${response.status})`);
+    const source = await imageFromBlob(dataUrlBlob(result.dataUrl)),
+      sourceWidth = source.naturalWidth || source.width,
+      sourceHeight = source.naturalHeight || source.height,
+      rasterScale = rasterScaleFor(command.w, command.h, sharpRenderRatio()),
+      image = offscreen(Math.max(1, Math.ceil(command.w * rasterScale)), Math.max(1, Math.ceil(command.h * rasterScale))),
+      q = image.getContext("2d"),
+      fit = Math.min(command.w / sourceWidth, command.h / sourceHeight),
+      width = sourceWidth * fit,
+      height = sourceHeight * fit;
+    q.scale(rasterScale, rasterScale);
+    q.drawImage(source, (command.w - width) / 2, (command.h - height) / 2, width, height);
+    image.logicalWidth = command.w;
+    image.logicalHeight = command.h;
+    image.revealRows = [command.w];
+    image.revealRowHeight = command.h;
     return image;
   }
   function layoutText(content, context, maxWidth) {
@@ -10848,6 +10885,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function copyTextForCommand(command) {
     if (["write_text", "handwrite_text"].includes(command?.tool) && typeof command.text === "string") return command.text;
     if (command?.tool === "draw_formula" && typeof command.latex === "string") return command.latex;
+    if (command?.tool === "generate_image" && typeof command.prompt === "string") return command.prompt;
     return null;
   }
   function pendingCopyValue(target) {
