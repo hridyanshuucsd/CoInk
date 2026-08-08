@@ -772,6 +772,7 @@ function sendAiResponse(progress, res, status, data) {
   if(!progress.finish(status,data))send(res,status,data);
 }
 function readJson(req, limit = MAX_BODY) { return new Promise((resolve, reject) => { let size = 0, chunks = []; req.on("data", c => { size += c.length; if (size > limit) { reject(new Error("Request too large")); req.destroy(); } else chunks.push(c); }); req.on("end", () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8"))); } catch { reject(new Error("Invalid JSON")); } }); req.on("error", reject); }); }
+function readText(req, limit) { return new Promise((resolve, reject) => { let size = 0, chunks = []; req.on("data", chunk => { size += chunk.length; if (size > limit) { reject(new Error("Request too large")); req.destroy(); } else chunks.push(chunk); }); req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8"))); req.on("error", reject); }); }
 function log(entry) { try { fs.mkdirSync(LOG_DIR, { recursive:true }); if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size >= MAX_LOG) { try { fs.renameSync(LOG_FILE, `${LOG_FILE}.1`); } catch { fs.truncateSync(LOG_FILE, 0); } } fs.appendFileSync(LOG_FILE, JSON.stringify({ time:new Date().toISOString(), ...entry }) + "\n"); } catch (error) { console.error("CoInk log error:", error.message); } }
 function short(value, length = 20000) { return typeof value === "string" ? value.slice(0, length) : value; }
 function canvasSnapshotPath(id, metadata = false) {
