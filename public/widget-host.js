@@ -834,7 +834,7 @@
             canvas = await snapshotPrimarySvg(requestedWidth, requestedHeight, scale);
             if (canvas) canvas.toDataURL("image/png");
           } catch (error) {
-            console.warn("PenEcho native SVG snapshot failed; using DOM renderer:", String(error?.message || error).slice(0, 300));
+            console.warn("CoInk native SVG snapshot failed; using DOM renderer:", String(error?.message || error).slice(0, 300));
           }
           if (captureExpired) {
             if (canvas) canvas.width = canvas.height = 1;
@@ -903,7 +903,7 @@
           && (typeof event.data.body === "string" || event.data.body instanceof ArrayBuffer)) {
           const headers = new Headers();
           if (typeof event.data.contentType === "string" && event.data.contentType) headers.set("Content-Type", event.data.contentType);
-          if (typeof event.data.finalUrl === "string" && event.data.finalUrl) headers.set("X-PenEcho-Final-URL", event.data.finalUrl);
+          if (typeof event.data.finalUrl === "string" && event.data.finalUrl) headers.set("X-CoInk-Final-URL", event.data.finalUrl);
           const body = [204, 205, 304].includes(event.data.status) ? null : event.data.body;
           pending.resolve(new Response(body, { status:event.data.status, headers }));
         } else pending.reject(Error("The public data response was invalid"));
@@ -924,7 +924,7 @@
     clearTimeout(pendingSnapshots.get(requestId)?.timer);
     pendingSnapshots.delete(requestId);
     const error = String(message || "Widget snapshot failed").replace(/[\r\n\t]+/g, " ").slice(0, 300);
-    console.warn("PenEcho widget snapshot failed:", error);
+    console.warn("CoInk widget snapshot failed:", error);
     parent.postMessage({ type:"penecho-widget-snapshot-error", requestId, error }, parentOrigin);
   }
 
@@ -947,7 +947,7 @@
           method:"POST",
           credentials:"same-origin",
           cache:"no-store",
-          headers:{ "Content-Type":"application/json", ...(accessSession ? { "X-PenEcho-Session":accessSession } : {}) },
+          headers:{ "Content-Type":"application/json", ...(accessSession ? { "X-CoInk-Session":accessSession } : {}) },
           body:JSON.stringify({ url:message.url }),
         }),
         body = await response.arrayBuffer(),
