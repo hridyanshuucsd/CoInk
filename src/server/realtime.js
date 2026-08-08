@@ -1,6 +1,6 @@
 "use strict";
 
-const DEFAULT_REALTIME_MODEL = "gpt-realtime-2";
+const DEFAULT_REALTIME_MODEL = "gpt-realtime-2.1";
 const DEFAULT_REALTIME_VOICE = "marin";
 const REALTIME_CALL_URL = "https://api.openai.com/v1/realtime/calls";
 const MAX_SDP_BYTES = 256 * 1024;
