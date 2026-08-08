@@ -12367,7 +12367,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     voiceTutorButton.disabled = connecting && !voiceTutor;
     voiceTutorButton.setAttribute("aria-label", t(connected ? "voiceStop" : "voiceTutor"));
     voiceTutorButton.title = t(connected ? "voiceStop" : "voiceTutor");
-    if (!connected && voiceLevel) voiceLevel.style.setProperty("--voice-level", ".18");
+    if (!connected && voiceLevel) runtimeElementStyle(voiceLevel, "voice-level")?.setProperty("--voice-level", ".18");
   }
 
   function queueVoiceCanvasCommands(input) {
@@ -12428,7 +12428,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     });
     tutor.addEventListener("miclevel", event => {
       const level = Math.max(.18, Math.min(1, Number(event.detail?.level) || 0));
-      voiceLevel?.style.setProperty("--voice-level", String(level));
+      runtimeElementStyle(voiceLevel, "voice-level")?.setProperty("--voice-level", String(level));
     });
     tutor.addEventListener("user-speech-start", () => sendVoiceCanvasContext("Canvas when the student began speaking"));
     tutor.addEventListener("canvas-action", handleVoiceTool);
