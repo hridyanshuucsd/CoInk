@@ -31,11 +31,11 @@ test("mobile connection shell preserves the server-side security boundary", () =
   const config = json("tools/mobile/capacitor.config.json");
   const html = fs.readFileSync(path.join(ROOT, "tools/mobile/web/index.html"), "utf8");
   const app = fs.readFileSync(path.join(ROOT, "tools/mobile/web/app.js"), "utf8");
-  assert.equal(config.appId, "ai.penecho.mobile");
+  assert.equal(config.appId, "io.github.hridyanshuucsd.coink");
   assert.deepEqual(config.server.allowNavigation, ["*"]);
   assert.equal(config.server.cleartext, true);
   assert.match(html, /id="serverUrl"/);
-  assert.match(html, /penecho-mark\.png/);
+  assert.match(html, /coink-mark\.png/);
   assert.match(app, /\["http:", "https:"\]/);
   assert.match(app, /target\.username \|\| target\.password \|\| target\.search \|\| target\.hash/);
   assert.match(app, /localStorage\.setItem/);
@@ -50,10 +50,10 @@ test("mobile builder creates branded, optionally signed APK targets", () => {
   assert.match(builder, /android\.injected\.version\.name/);
   assert.match(builder, /android:usesCleartextTraffic/);
   assert.match(builder, /ANDROID_SIGNING_STORE_FILE/);
-  assert.match(builder, /penecho-1024\.png/);
+  assert.match(builder, /coink-1024\.png/);
   assert.match(builder, /android-debug/);
   assert.match(ignore, /tools\/mobile\/android\//);
-  assert.match(ignore, /tools\/mobile\/web\/penecho-mark\.png/);
+  assert.match(ignore, /tools\/mobile\/web\/coink-mark\.png/);
 });
 
 test("release workflow builds and publishes the Android APK", () => {
