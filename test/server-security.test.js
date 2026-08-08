@@ -694,7 +694,7 @@ test("process-lifetime PIN gates the Canvas and local APIs, then clears on resta
     assert.equal(authenticatedOpenRequest.status,400);
     const laterPage=await fetch(running.origin),laterHtml=await laterPage.text();
     assert.ok(laterPage.headers.get("set-cookie"));
-    assert.match(laterHtml,/Handwritten AI Canvas/);
+    assert.match(laterHtml,/CoInk Tutor \| Voice and handwriting canvas/);
   } finally {
     await stopServer(running.child);
   }
