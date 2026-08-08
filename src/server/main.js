@@ -620,8 +620,12 @@ function connectionTestErrorMessage(error, provider) {
   return message.split("Kimi Code CLI is not available.", 1)[0].trim() || "Kimi Code CLI connection test failed.";
 }
 
+function coinkRequestHeader(req, name) {
+  return req.headers[`x-coink-${name}`] ?? req.headers[`x-penecho-${name}`];
+}
+
 function requestProviderSnapshot(req) {
-  const requestedId = String(req.headers["x-penecho-connection"] || "default").trim(), store = connectionStore(),
+  const requestedId = String(coinkRequestHeader(req, "connection") || "default").trim(), store = connectionStore(),
     connection = findConnection(store, requestedId) || store.defaultConnection;
   return connectionProviderSnapshot(connection);
 }
@@ -1588,7 +1592,7 @@ function matchesAiSessionToken(value) {
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 function hasAiSession(req) {
-  const header = req.headers["x-penecho-session"];
+  const header = coinkRequestHeader(req, "session");
   if (!Array.isArray(header) && matchesAiSessionToken(header)) return true;
   const name = aiSessionCookieName(req);
   if (!name) return false;
@@ -1697,7 +1701,7 @@ function isJsonRequest(req) {
   return String(req.headers["content-type"]||"").split(";",1)[0].trim().toLowerCase()==="application/json";
 }
 function localRequestClientKey(req) {
-  const value = req.headers["x-penecho-client"];
+  const value = coinkRequestHeader(req, "client");
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value)
     ? `client:${value.toLowerCase()}`
     : `legacy:${localAccessClientKey(req)}`;
