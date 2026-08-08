@@ -1,7 +1,9 @@
 export class RealtimeTutor extends EventTarget {
-  constructor(audioEl){
+  constructor(audioEl, options={}){
     super();
     this.audioEl=audioEl;
+    this.endpoint=options.endpoint||'/api/realtime/call';
+    this.requestHeaders=options.requestHeaders||null;
     this.pc=null; this.dc=null; this.stream=null;
     this.connected=false; this.assistantTranscript='';
     this.pending=[];
@@ -55,8 +57,10 @@ export class RealtimeTutor extends EventTarget {
 
     const offer=await pc.createOffer();
     await pc.setLocalDescription(offer);
-    const res=await fetch('/api/realtime/call',{
-      method:'POST',headers:{'Content-Type':'application/sdp'},body:offer.sdp
+    const baseHeaders={'Content-Type':'application/sdp'};
+    const headers=typeof this.requestHeaders==='function'?this.requestHeaders(baseHeaders):{...baseHeaders,...(this.requestHeaders||{})};
+    const res=await fetch(this.endpoint,{
+      method:'POST',credentials:'same-origin',headers,body:offer.sdp
     });
     if(!res.ok){
       const msg=await res.text(); this.close(); throw new Error(msg||`Realtime failed (${res.status})`);
@@ -143,8 +147,9 @@ export class RealtimeTutor extends EventTarget {
     else this.send({type:'response.create'});
   }
 
-  sendFunctionOutput(callId,output='{"ok":true}'){
-    this.send({type:'conversation.item.create',item:{type:'function_call_output',call_id:callId,output}});
+  sendFunctionOutput(callId,output={ok:true}){
+    const value=typeof output==='string'?output:JSON.stringify(output);
+    this.send({type:'conversation.item.create',item:{type:'function_call_output',call_id:callId,output:value}});
   }
 
   /**
