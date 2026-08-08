@@ -798,10 +798,11 @@
     const capture = packed.captureRect,
       padding = Math.max(80, Math.min(320, latestBox.h * 0.15)),
       command = commands[0];
-    if (command.tool !== "write_text" && command.tool !== "draw_formula") return commands;
+    if (!["write_text", "handwrite_text", "draw_formula"].includes(command.tool)) return commands;
     if (packed.selectionContext) return commands;
-    const width = command.tool === "write_text" ? command.maxWidth : command.fontSize,
-      height = command.tool === "write_text" ? command.fontSize * command.lineHeight * 2 : command.fontSize * 1.8,
+    const textTool = ["write_text", "handwrite_text"].includes(command.tool),
+      width = textTool ? command.maxWidth : command.fontSize,
+      height = textTool ? command.fontSize * command.lineHeight * 2 : command.fontSize * 1.8,
       farAbove = command.y + Math.max(command.fontSize || 100, 120) < capture.y,
       suspiciousCanvasTop = command.y < capture.y + Math.max(200, capture.h * 0.04) && command.y + Math.max(command.fontSize || 100, 120) < latestBox.y - Math.max(400, capture.h * 0.12),
       farOutside = command.y > capture.y + capture.h || command.x > capture.x + capture.w || command.x + width < capture.x;
@@ -810,7 +811,7 @@
       preferredY = Math.max(capture.y, Math.min(capture.y + capture.h - Math.min(height, capture.h), latestBox.y + latestBox.h + padding));
     next.x = Math.max(capture.x, Math.min(capture.x + capture.w - Math.min(width, capture.w), latestBox.x));
     next.y = Math.max(0, Math.min(SIZE - height, preferredY));
-    if (next.tool === "write_text") next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE - next.x));
+    if (textTool) next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE - next.x));
     return [next];
   }
   function widgetGeometryForViewport(visibleRect) {
@@ -1026,6 +1027,8 @@
           pendingCommand = c;
         if (c.tool === "write_text") {
           image = textImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, state.aiFont, AI_TEXT_MAX_LENGTH, sharpRenderRatio());
+        } else if (c.tool === "handwrite_text") {
+          image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
         } else if (c.tool === "draw_formula") {
           image = await formulaImage(c.latex, c.fontSize, c.color);
         } else if (c.tool === "plot_function") {
@@ -1068,6 +1071,7 @@
       y = c.y,
       pendingCommand = c;
     if (c.tool === "write_text") image = textImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, state.aiFont, AI_TEXT_MAX_LENGTH, sharpRenderRatio());
+    else if (c.tool === "handwrite_text") image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
     else if (c.tool === "draw_formula") image = await formulaImage(c.latex, c.fontSize, c.color);
     else if (c.tool === "plot_function") image = plot(c);
     else if (c.tool === "animate_scene") {
@@ -1099,11 +1103,11 @@
   function resolvePendingItemOverlaps(items, meta) {
     const gap = Math.max(40, 14 / Math.max(0.03, state.scale)),
       flow = items
-        .filter((item) => ["write_text", "draw_formula"].includes(item.command.tool))
+        .filter((item) => ["write_text", "handwrite_text", "draw_formula"].includes(item.command.tool))
         .sort((a, b) => a.y - b.y || a.x - b.x),
       placed = [],
       fixed = items
-        .filter((item) => !["write_text", "draw_formula", "draw"].includes(item.command.tool))
+        .filter((item) => !["write_text", "handwrite_text", "draw_formula", "draw"].includes(item.command.tool))
         .map((item) => item.erase ? item.bounds : { x: item.x, y: item.y, w: item.layoutWidth, h: item.layoutHeight });
     for (const item of flow) {
       const width = item.image.logicalWidth || item.image.width,
@@ -1462,7 +1466,7 @@
     });
   }
   function copyTextForCommand(command) {
-    if (command?.tool === "write_text" && typeof command.text === "string") return command.text;
+    if (["write_text", "handwrite_text"].includes(command?.tool) && typeof command.text === "string") return command.text;
     if (command?.tool === "draw_formula" && typeof command.latex === "string") return command.latex;
     return null;
   }
