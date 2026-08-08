@@ -1039,6 +1039,8 @@
           image = await formulaImage(c.latex, c.fontSize, c.color);
         } else if (c.tool === "plot_function") {
           image = plot(c);
+        } else if (c.tool === "generate_image") {
+          image = await generatedImageDraft(c);
         } else if (c.tool === "animate_scene") {
           pendingCommand = ANIMATION.normalize(c, SIZE);
           image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
@@ -1080,6 +1082,7 @@
     else if (c.tool === "handwrite_text") image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
     else if (c.tool === "draw_formula") image = await formulaImage(c.latex, c.fontSize, c.color);
     else if (c.tool === "plot_function") image = plot(c);
+    else if (c.tool === "generate_image") image = await generatedImageDraft(c);
     else if (c.tool === "animate_scene") {
       pendingCommand = ANIMATION.normalize(c, SIZE);
       image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
@@ -1209,6 +1212,33 @@
     image.revealRowHeight = naturalHeight;
     image.naturalWidth = image.logicalWidth = naturalWidth;
     image.naturalHeight = image.logicalHeight = naturalHeight;
+    return image;
+  }
+  async function generatedImageDraft(command) {
+    setStatusKey("aiGeneratingImage");
+    const response = await fetch("/api/images/generate", {
+        method:"POST",
+        credentials:"same-origin",
+        headers:aiRequestHeaders({ "Content-Type":"application/json" }),
+        body:JSON.stringify({ prompt:command.prompt, width:command.w, height:command.h }),
+      }),
+      result = await response.json().catch(() => null);
+    if (!response.ok || typeof result?.dataUrl !== "string") throw Error(result?.error || `Image generation failed (HTTP ${response.status})`);
+    const source = await imageFromBlob(dataUrlBlob(result.dataUrl)),
+      sourceWidth = source.naturalWidth || source.width,
+      sourceHeight = source.naturalHeight || source.height,
+      rasterScale = rasterScaleFor(command.w, command.h, sharpRenderRatio()),
+      image = offscreen(Math.max(1, Math.ceil(command.w * rasterScale)), Math.max(1, Math.ceil(command.h * rasterScale))),
+      q = image.getContext("2d"),
+      fit = Math.min(command.w / sourceWidth, command.h / sourceHeight),
+      width = sourceWidth * fit,
+      height = sourceHeight * fit;
+    q.scale(rasterScale, rasterScale);
+    q.drawImage(source, (command.w - width) / 2, (command.h - height) / 2, width, height);
+    image.logicalWidth = command.w;
+    image.logicalHeight = command.h;
+    image.revealRows = [command.w];
+    image.revealRowHeight = command.h;
     return image;
   }
   function layoutText(content, context, maxWidth) {
@@ -1474,6 +1504,7 @@
   function copyTextForCommand(command) {
     if (["write_text", "handwrite_text"].includes(command?.tool) && typeof command.text === "string") return command.text;
     if (command?.tool === "draw_formula" && typeof command.latex === "string") return command.latex;
+    if (command?.tool === "generate_image" && typeof command.prompt === "string") return command.prompt;
     return null;
   }
   function pendingCopyValue(target) {
