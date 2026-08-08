@@ -3031,6 +3031,29 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+  if (req.method === "POST" && url.pathname === "/api/images/generate") {
+    const requestId = crypto.randomUUID(), started = Date.now(), controller = new AbortController(), abort = () => { if (!res.writableEnded) controller.abort(); };
+    req.once("aborted", abort);
+    res.once("close", abort);
+    try {
+      const authorizationError = browserRequestError(req);
+      if (authorizationError) return send(res, 403, { error:authorizationError, requestId });
+      if (!isJsonRequest(req)) return send(res, 415, { error:"Image generation requires application/json.", requestId });
+      const providerSnapshot = requestProviderSnapshot(req), configuration = imageGenerationConfiguration(providerSnapshot);
+      if (!configuration.available) return send(res, 503, { error:configuration.error, requestId });
+      const image = await generateImage(await readJson(req, 8 * 1024), configuration, { signal:controller.signal });
+      log({ type:"image-generation", requestId, ip:req.socket.remoteAddress, model:configuration.model, status:200, elapsedMs:Date.now()-started });
+      return send(res, 200, { ...image, requestId });
+    } catch (error) {
+      const clientError = ["Invalid JSON", "Request too large"].includes(error?.message), timedOut = error?.name === "AbortError", status = error?.message === "Request too large" ? 413 : clientError ? 400 : timedOut ? 504 : Number.isInteger(error?.status) ? error.status : 502;
+      log({ type:"image-generation", requestId, ip:req.socket.remoteAddress, status, elapsedMs:Date.now()-started, error:clientError ? "client-error" : timedOut ? "timeout" : "failed" });
+      if (!res.writableEnded && !res.destroyed) return send(res, status, { error:error?.message || "Unable to generate an image.", requestId });
+    } finally {
+      req.removeListener("aborted", abort);
+      res.removeListener("close", abort);
+    }
+    return;
+  }
   if (req.method === "POST" && url.pathname === "/api/math/verify") {
     try {
       const authorizationError = browserRequestError(req);
