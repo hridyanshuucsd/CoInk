@@ -127,13 +127,13 @@
     onActivity?.();
     const contentType=String(response.headers.get("content-type")||"").split(";",1)[0].trim().toLowerCase();
     if(contentType!=="application/x-ndjson")return{ok:response.ok,status:response.status,data:await response.json()};
-    if(!response.body)throw new Error("PenEcho returned an empty progress stream.");
+    if(!response.body)throw new Error("CoInk returned an empty progress stream.");
     const reader=response.body.getReader(),decoder=new TextDecoder();
     let buffer="",terminal=null;
     const consume=(line)=>{
       if(!line.trim())return;
       let event;
-      try{event=JSON.parse(line)}catch{throw new Error("PenEcho returned an invalid progress event.")}
+      try{event=JSON.parse(line)}catch{throw new Error("CoInk returned an invalid progress event.")}
       if(event?.type==="progress")onProgress?.(event);
       else if(event?.type==="result"||event?.type==="error")terminal=event;
     };
@@ -146,7 +146,7 @@
       if(done)break;
     }
     if(buffer.trim())consume(buffer);
-    if(!terminal)throw new Error("PenEcho progress stream ended before the model response arrived.");
+    if(!terminal)throw new Error("CoInk progress stream ended before the model response arrived.");
     const status=Number.isInteger(terminal.status)?terminal.status:terminal.type==="result"?200:500;
     return{ok:terminal.type==="result"&&status>=200&&status<300,status,data:terminal.data||{}};
   }
