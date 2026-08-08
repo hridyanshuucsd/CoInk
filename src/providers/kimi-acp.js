@@ -154,7 +154,7 @@ class KimiAcpClient {
       }
       return;
     }
-    this._send({ jsonrpc:"2.0", id, error:{ code:-32601, message:`PenEcho does not provide ${method}.` } });
+    this._send({ jsonrpc:"2.0", id, error:{ code:-32601, message:`CoInk does not provide ${method}.` } });
   }
 
   _onSessionUpdate(params) {

@@ -10,12 +10,12 @@ const MAX_CAPTURE_BYTES = 1024 * 1024;
 const KIMI_AGENT_FILE = "penecho-canvas-agent.md";
 const KIMI_AGENT_DEFINITION = `---
 name: penecho-canvas
-description: Isolated response generator for PenEcho Canvas
+description: Isolated response generator for CoInk Canvas
 tools: []
 subagents: []
 ---
 
-You are an isolated response generator for PenEcho Canvas. Follow the user prompt exactly and return only the requested response. Use only content supplied in the prompt, including virtual-file read views. You have no tools and must not access the host filesystem, run commands, access the network, delegate work, or modify the environment.
+You are an isolated response generator for CoInk Canvas. Follow the user prompt exactly and return only the requested response. Use only content supplied in the prompt, including virtual-file read views. You have no tools and must not access the host filesystem, run commands, access the network, delegate work, or modify the environment.
 `;
 
 function findOnPath(name, env = process.env) {
