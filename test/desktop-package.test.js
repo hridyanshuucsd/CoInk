@@ -284,7 +284,8 @@ test("desktop shell and Forge config keep the renderer isolated and package nati
   assert.match(forge, /node_modules\/\{sharp,@img\}/);
   assert.match(forge, /readPackageJson/);
   assert.match(forge, /\^\\\/tools/);
-  assert.match(forge, /maker-dmg/);
+  assert.doesNotMatch(forge, /maker-dmg/);
+  assert.match(forge, /maker-zip/);
   assert.match(forge, /maker-squirrel/);
   assert.match(forge, /identity:"-"/);
   assert.match(forge, /identityValidation:false/);
@@ -336,14 +337,17 @@ test("desktop build dependencies are isolated from normal root installs", () => 
     workflow = fs.readFileSync(path.join(ROOT, ".github", "workflows", "desktop-release.yml"), "utf8"),
     collector = fs.readFileSync(path.join(ROOT, "scripts", "collect-artifacts.js"), "utf8");
   for (const dependency of [
-    "electron", "@electron-forge/cli", "@electron-forge/maker-dmg",
-    "@electron-forge/maker-squirrel", "@electron-forge/maker-zip",
+    "electron", "@electron-forge/cli", "@electron-forge/maker-squirrel", "@electron-forge/maker-zip",
   ]) {
     assert.equal(rootPackage.devDependencies[dependency], undefined, dependency);
     assert.ok(desktopPackage.devDependencies[dependency], dependency);
     assert.equal(rootLock.packages[`node_modules/${dependency}`], undefined, dependency);
     assert.ok(desktopLock.packages[`node_modules/${dependency}`], dependency);
   }
+  assert.equal(desktopPackage.devDependencies["@electron-forge/maker-dmg"], undefined);
+  assert.equal(desktopLock.packages["node_modules/@electron-forge/maker-dmg"], undefined);
+  assert.equal(desktopPackage.overrides.tar, "7.5.22");
+  assert.equal(desktopPackage.overrides.tmp, "0.2.7");
   assert.equal(rootPackage.scripts["desktop:deps"], "npm ci --prefix tools/electron");
   assert.match(runner, /cwd:ROOT/);
   assert.match(runner, /@electron-forge\/cli/);
