@@ -1,144 +1,177 @@
 # CoInk Tutor
 
-A shared handwriting canvas where a student writes with an Apple Pencil or stylus while an
-AI tutor **sees the page, talks with them continuously, and writes back in its own animated
-vector handwriting**.
+CoInk is a private AI tutor that shares a large spatial canvas with the learner. It can
+see handwriting, talk naturally, write back in vector handwriting, create images and
+professional diagrams, plot functions, and verify supported algebra exactly before it
+judges a step.
 
-The tutor is one brain, not two: the realtime voice model draws on the canvas *while it
-speaks*, through a tool call. When it says "let me circle that", the circle appears.
+The canvas foundation is derived from PenEcho 0.9.0 and is combined with CoInk's voice,
+handwriting, and tutoring work. See [NOTICE](NOTICE) for provenance and
+[docs/FOUNDATION-REVIEW.md](docs/FOUNDATION-REVIEW.md) for the engineering decision.
 
-No build step, no database, no frontend framework. Node 20.3+ is enough.
+## What works
 
-> Sibling project: **StudyInk** — same canvas engine, a different tutoring surface.
-
----
-
-## What it does
-
-**Canvas**
-- Pressure-sensitive stylus input via Pointer Events; palm rejection (pen draws, touch pans)
-- Two-finger pinch zoom, finger pan, mouse wheel zoom
-- Pen with four ink colours, eraser, undo, AI-only undo, clear, PNG export
-- Local autosave per session; reload restores the page
-- Infinite world canvas with a pan/zoom view transform
-
-**The tutor**
-- Realtime speech-to-speech voice over WebRTC — the mic stays on, no push-to-talk
-- The voice model writes and draws through a `canvas_action` tool while speaking
-- Handwriting is rendered from **real vector stroke trajectories** (Hershey), animated
-  stroke by stroke with a visible pen cursor — not `fillText`, not a bitmap font
-- Circles, arrows, underlines, check marks and crosses
-- Silent auto-tutoring after a pen pause, plus explicit **Hint** and **Check**
-- Text chat fallback when voice isn't wanted
-- Student writing or speaking instantly interrupts the tutor's unfinished ink;
-  speaking interrupts its speech
-
-**Accurate placement.** Rather than asking a vision model to guess pixel coordinates —
-which is reliably 5–15% off — every snapshot carries a **CANVAS INK MAP**: visible ink is
-clustered into labeled regions (`s1`, `s2`, …) with boxes. The tutor targets `anchor_id: "s3"`
-and the client resolves that against live geometry. Snapshots also carry a burned-in labeled
-coordinate grid, coordinates are pinned to the view at capture time, and planned handwriting
-is nudged into free space if it would cover the student's work.
-
-**Operations**
-- Access-code gate (HttpOnly cookie), rate-limited auth attempts
-- Per-IP rate limiting and a daily upstream-call cap as a cost guard
-- Batched async JSONL session logging under `data/sessions/`
-- PWA manifest, dark mode, safe-area insets — installable to an iPad home screen
-- The OpenAI API key never reaches browser JavaScript
-
----
+- A sparse 20,000 × 20,000 logical canvas with tiled persistence, pan/zoom, pen, eraser,
+  text, photos, lasso editing, undo/redo, snapshots, and project import/export.
+- Vision tutoring over a focused canvas atlas, with automatic help after a pen pause and
+  explicit hint, explain, answer, plot, correct, erase, and typeset actions.
+- Speech-to-speech tutoring over WebRTC with interruption, semantic voice activity
+  detection, canvas vision, and tool calls that write or mark the same page while speaking.
+- Deterministic Hershey vector handwriting for short hints, labels, and corrections.
+- Movable, resizable, confirm/reject drafts for all AI additions, including generated
+  images. Nothing becomes part of the page until the learner accepts it.
+- Native function plots and lightweight sketches, plus professional Mermaid, Graphviz
+  DOT, BPMN, Vega-Lite, GeoJSON, SMILES, and Cytoscape rendering through local plugins.
+- General sandboxed HTML/SVG widgets for simulations, richer explanations, and custom
+  visualizations.
+- Exact rational arithmetic and polynomial normalization for supported equality and
+  transformation checks. Unsupported functions are reported as unsupported rather than
+  presented as machine-verified proof.
+- Browser, Electron desktop, and Capacitor mobile packaging paths.
 
 ## Quick start
 
+Requirements: Node.js 20.3 or newer and one supported visual-planner source.
+
 ```bash
-cp .env.example .env      # then set OPENAI_API_KEY and ACCESS_CODE
+npm install
+node cli.js configure
 npm start
 ```
 
-Open <http://localhost:3888>. If `ACCESS_CODE` is set you'll be asked for it once
-(or open `/?code=NNNNNN` directly).
+Open <http://localhost:3888>. On first local setup, CoInk asks you to create a six-digit
+access code. That gate protects the browser and AI endpoints; it is not a multi-user
+account system.
 
-Requirements: Node.js 20.3+, an OpenAI API key with Realtime and Responses access,
-and a Chromium/Safari browser with microphone permission.
+The configuration center supports:
 
-### Using it on an iPad
+- an OpenAI- or Anthropic-compatible HTTP API;
+- an authenticated Codex CLI;
+- an authenticated Claude CLI; or
+- an authenticated Kimi Code CLI.
 
-Browsers only grant microphone access over HTTPS (`localhost` also counts as secure).
-For a tablet, put the server behind an HTTPS tunnel:
+Fresh configuration is stored under `~/.coink/config.env`. An existing
+`~/.penecho/config.env` is recognized for migration compatibility. For unattended setup,
+start from [`.env.example`](.env.example) or pass `--config FILE`.
 
-```bash
-cloudflared tunnel --url http://localhost:3888
-```
+## Voice and generated images
 
-Then open the `https://…` URL it prints. Note that *quick* tunnels mint a new random URL
-each restart; a named tunnel (free Cloudflare account) gives you a stable one. The included
-`Dockerfile` covers a real deployment.
+Voice and raster generation use official OpenAI endpoints. If the selected planner is an
+official OpenAI API connection, CoInk reuses its server-side key. Otherwise set dedicated
+`COINK_REALTIME_API_KEY` and `COINK_IMAGE_API_KEY` values in the configuration file.
+The browser never receives either key.
 
----
+The current defaults are:
 
-## Configuration
+| Capability | Default |
+|---|---|
+| Visual planner | `gpt-5.6-terra` in the API setup flow |
+| Realtime voice | `gpt-realtime-2.1` with the `marin` voice |
+| Raster images | `gpt-image-2`, medium-quality transparent PNG |
 
-All settings live in `.env` — see [`.env.example`](.env.example) for the annotated list.
-The ones worth knowing:
+Microphone capture requires a secure browser context. `localhost` works directly; an
+iPad or another device needs HTTPS, such as a named reverse proxy or tunnel terminating
+in front of port 3888.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `OPENAI_API_KEY` | — | Required |
-| `ACCESS_CODE` | empty | Gates every page and API call. Empty disables the gate — only safe on a trusted network |
-| `VAD_EAGERNESS` | `auto` | Turn-taking sensitivity: `low` is patient with thinking pauses, `high` replies fast |
-| `OPENAI_TUTOR_REASONING` | `medium` | Effort for the silent visual planner |
-| `DAILY_CALL_CAP` | `1500` | Hard ceiling on upstream calls per day |
-| `AUTO_AI_DELAY_MS` | `1100` | Pen-pause delay before silent auto-tutoring |
+Image generation is intentionally reserved for an explicit request for raster art,
+illustration, or a photorealistic visual. Flowcharts, scientific diagrams, plots, and
+mathematical constructions stay deterministic and editable.
 
----
-
-## How it fits together
+## Tutor interaction model
 
 ```text
-   Student stylus ──────────────┐
-                                ▼
-                         Shared canvas  ──── snapshot + ink map ────┐
-                                ▲                                   │
-                                │                                   ▼
-   Microphone ──── WebRTC ──────┴──── realtime model ──── canvas_action tool
-                                              │
-                                              └──── speech (audio out)
+pen + text + images ──> focused visual atlas ──> planner ──> validated draft
+                                                             ├─ handwriting
+                                                             ├─ plot / diagram / widget
+                                                             ├─ generated raster image
+                                                             └─ symbolic check
 
-   Pen pause ──── silent planner (Responses API, structured outputs) ──── ink plan
+microphone ──> OpenAI Realtime ──> speech
+                     │
+                     ├─ canvas_commands ──> the same validated draft path
+                     └─ verify_math ──────> exact local algebra evidence
 ```
 
-The browser holds the canvas and all geometry. The server holds the API key, gates access,
-and proxies two things: the WebRTC SDP handshake that opens a realtime session, and the
-silent planner call used for auto-tutoring and the no-voice fallback.
+The browser owns canvas geometry, rendering, draft interaction, and local persistence.
+The server owns credentials, access control, provider calls, symbolic verification, and
+bounded external-resource access. The voice model and visual planner share the canvas
+command vocabulary so spoken references and drawn marks stay connected.
 
-### Source map
+## Canvas and file capabilities
+
+- AI output can be moved and resized before confirmation.
+- Markdown and TeX text boxes remain editable.
+- Diagrams retain reusable professional source where the renderer supports it.
+- Live widgets can be refined, refreshed, resized, and safely sandboxed.
+- PNG export crops to content; canvas snapshots and project bundles preserve working
+  state; local history is device-scoped.
+- Desktop and mobile builds reuse the same browser canvas runtime.
+
+## Development
+
+```bash
+npm run build:client
+npm test
+npm run check
+```
+
+`public/app.js` is a checked-in bundle built from the ordered sources in
+`src/client/app/`. Always run `npm run build:client` after editing those source files.
+
+Useful entry points:
 
 | Path | Role |
 |---|---|
-| `server.mjs` | HTTP server, auth gate, rate limits, realtime session setup, silent planner |
-| `public/canvas.js` | Canvas engine: view transform, input routing, ink map, anchor resolution, animation |
-| `public/handwriting.js` | Hershey vector handwriting layout with a deterministic "hand" |
-| `public/realtime.js` | WebRTC realtime client: tool calls, response queueing, reconnect, mic meter |
-| `public/app.js` | Wiring, UI state, transcript, snapshot scheduling |
-| `docs/AUDIT-AND-IMPLEMENTATION.md` | Full engineering audit and what was fixed |
+| `cli.js` | CoInk command-line entry point and configuration center |
+| `server.js` | Loads the integrated server runtime |
+| `src/server/main.js` | HTTP security boundary, AI orchestration, plugins, and persistence |
+| `src/server/realtime.js` | Realtime session and voice tool contract |
+| `src/server/image-generation.js` | Server-side GPT Image gateway and validation |
+| `src/server/symbolic-math.js` | Exact rational polynomial verifier |
+| `src/client/app/voice-runtime.js` | Browser WebRTC, canvas context, and tool dispatch |
+| `src/client/app/ai-runtime.js` | AI command validation and confirmable drafts |
+| `public/handwriting.js` | Deterministic Hershey vector trajectories |
+| `public/plugins/` | Diagram, data, and general HTML capability contracts |
+| `docs/PENECHO-ARCHITECTURE.md` | Audited upstream architecture reference |
+| `docs/ARCHITECTURE-NEXT.md` | Integrated product architecture and boundaries |
 
----
+For desktop development:
 
-## Research logging
+```bash
+npm run desktop:deps
+npm run desktop
+```
 
-Session events (strokes, tutor plans, transcripts, timings) append to
-`data/sessions/<id>.jsonl`, batched every two seconds. Participant IDs come from the URL —
-`?participant=P014`. Disable with `LOG_SESSIONS=0`, or drop stroke point arrays with
-`LOG_STROKE_POINTS=0`. Session logs are git-ignored.
+Mobile scaffolding is under `tools/mobile`; use `npm run mobile:deps` before the platform
+build commands.
 
-## Security notes
+## Security and privacy
 
-The access code is a shared-secret gate appropriate for small trusted groups and study
-participants. It is not user accounts, and it does not isolate participants' data from each
-other. Never commit `.env`; it is git-ignored.
+- Model keys remain server-side and browser API calls require the same-origin access
+  context.
+- Realtime SDP and generated-image payloads are size- and type-bounded.
+- Public widget fetches reject local/private destinations and apply response limits.
+- Generated widget code runs in a sandbox without cookies, storage, forms, or secrets.
+- Saved canvas state and history are local to the device unless the user explicitly uses
+  a shared server snapshot or exports a project.
 
-## Licence
+Before exposing CoInk beyond a trusted group, put it behind HTTPS and a production-grade
+identity layer. The built-in six-digit code is a local collaboration gate, not tenant
+isolation.
 
-MIT — see [LICENSE](LICENSE). The vector handwriting derives from the Hershey fonts;
-see [NOTICE-HERSHEY.md](NOTICE-HERSHEY.md).
+## Scope of symbolic verification
+
+The verifier handles exact integers, decimals converted to rationals, rational arithmetic,
+implicit multiplication, polynomial expansion/normalization, polynomial equality, and
+equivalent proportional equations. It is not yet a full CAS: calculus, trigonometric
+identities, inequalities, domains, units, geometry proofs, and theorem-prover certificates
+still require model reasoning and should not be labeled exact verification.
+
+## License and provenance
+
+CoInk's repository license is MIT. Portions of the canvas runtime derive from PenEcho at
+upstream commit `3a2d4fbffbe56ec26a97a8de2dee6827a9e7e655`; the project owner states that a
+separate signed declaration from the PenEcho creator authorizes this use. That declaration
+is held by the owner and is not included in the repository. PenEcho logos and trademarks
+are not used as CoInk product identity. See [NOTICE](NOTICE) and
+[NOTICE-HERSHEY.md](NOTICE-HERSHEY.md).
