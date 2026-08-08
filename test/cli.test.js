@@ -83,7 +83,7 @@ test("parses commands, provider overrides, and explicit config files", () => {
 });
 
 test("default startup reads only the global config and ignores project env files", () => {
-  const directory = temporaryDirectory(), home = path.join(directory, "home"), cwd = path.join(directory, "cwd"), packageRoot = path.join(directory, "package"), stateDir = path.join(home, ".penecho");
+  const directory = temporaryDirectory(), home = path.join(directory, "home"), cwd = path.join(directory, "cwd"), packageRoot = path.join(directory, "package"), stateDir = path.join(home, ".coink");
   for (const item of [stateDir, cwd, packageRoot]) fs.mkdirSync(item, { recursive:true });
   fs.writeFileSync(path.join(packageRoot, ".env"), "AI_PROVIDER=api\nAI_API_MODEL=package\n");
   fs.writeFileSync(path.join(cwd, ".env"), "AI_PROVIDER=api\nAI_API_MODEL=cwd\n");
@@ -97,7 +97,7 @@ test("default startup reads only the global config and ignores project env files
 });
 
 test("--config replaces the global config source", () => {
-  const directory = temporaryDirectory(), home = path.join(directory, "home"), cwd = path.join(directory, "cwd"), stateDir = path.join(home, ".penecho");
+  const directory = temporaryDirectory(), home = path.join(directory, "home"), cwd = path.join(directory, "cwd"), stateDir = path.join(home, ".coink");
   fs.mkdirSync(stateDir, { recursive:true }); fs.mkdirSync(cwd, { recursive:true });
   fs.writeFileSync(path.join(stateDir, "config.env"), "AI_PROVIDER=codex-cli\nCODEX_CLI_MODEL=global-model\n");
   fs.writeFileSync(path.join(cwd, "team.env"), "AI_PROVIDER=claude-cli\nCLAUDE_CLI_MODEL=team-model\n");
@@ -151,7 +151,7 @@ test("first noninteractive startup points to the full configure command", async 
   });
   assert.equal(code, 1);
   assert.equal(started, false);
-  assert.match(errors.text(), /penecho configure/);
+  assert.match(errors.text(), /coink-tutor configure/);
 });
 
 test("first interactive startup opens the configuration center automatically", async () => {
@@ -184,7 +184,7 @@ test("normal startup serves first, then checks, installs, stops, and waits for a
   assert.deepEqual(events, ["server", "check", "install:99.0.0", "stop"]);
   assert.match(output.text(), /CoInk v\d+\.\d+\.\d+/);
   assert.match(output.text(), /newer CoInk version/);
-  assert.match(output.text(), /Run `penecho` again/);
+  assert.match(output.text(), /Run `coink-tutor` again/);
   assert.equal(errors.text(), "");
 });
 
@@ -222,7 +222,7 @@ test("Anthropic API configure saves none as an explicit thinking-disabled effort
     env:{}, home, cwd, packageRoot:ROOT, ui, output:capture().stream, errorOutput:capture().stream,
     apiTester:async () => ({ format:"anthropic", status:200 }),
   });
-  const saved = fs.readFileSync(path.join(home, ".penecho", "config.env"), "utf8");
+  const saved = fs.readFileSync(path.join(home, ".coink", "config.env"), "utf8");
   assert.equal(code, 0);
   assert.match(saved, /^AI_API_FORMAT=anthropic$/m);
   assert.match(saved, /^AI_EFFORT=none$/m);
@@ -244,7 +244,7 @@ test("Kimi, Codex, and Claude are supported by configure and save their model ch
       codexCaller:async () => "OK",
       claudeCaller:async () => "OK",
     };
-    const code = await main(["configure", scenario.flag], options), saved = fs.readFileSync(path.join(home, ".penecho", "config.env"), "utf8");
+    const code = await main(["configure", scenario.flag], options), saved = fs.readFileSync(path.join(home, ".coink", "config.env"), "utf8");
     assert.equal(code, 0);
     assert.match(saved, new RegExp(`^${scenario.field}=${scenario.model.replaceAll(".", "\\.")}$`, "m"));
   }
@@ -433,8 +433,8 @@ test("Claude doctor does not claim an untested session is ready", async () => {
 
 test("help documents configure, global config, explicit config, and transient overrides", () => {
   const help = helpText();
-  assert.match(help, /penecho configure/);
-  assert.match(help, /~\/.penecho\/config\.env/);
+  assert.match(help, /coink-tutor configure/);
+  assert.match(help, /~\/.coink\/config\.env/);
   assert.match(help, /--config/);
   assert.match(help, /--model/);
   assert.match(help, /--effort/);
