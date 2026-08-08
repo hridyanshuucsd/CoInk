@@ -51,7 +51,7 @@ function executableName(base, platform) {
 
 function pathForPlatform(platform, ...values) {
   if (platform === "win32") return path.win32;
-  return values.some(value => path.win32.isAbsolute(String(value || ""))) ? path : path.posix;
+  return values.some(value => /^(?:[A-Za-z]:[\\/]|\\\\)/.test(String(value || ""))) ? path : path.posix;
 }
 
 function managedCliPath(provider, options = {}) {
