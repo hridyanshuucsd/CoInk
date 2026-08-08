@@ -215,9 +215,10 @@ function createUpdateManager(options) {
     onStateChange = typeof options.onStateChange === "function" ? options.onStateChange : () => {},
     platform = options.platform || process.platform,
     arch = options.arch || process.arch,
+    targetPath = platform === "win32" ? path.win32 : path.posix,
     currentVersion = String(app.getVersion()),
     supported = Boolean(expectedAssetName(platform, arch, currentVersion)),
-    updateDirectory = options.updateDirectory || path.join(app.getPath?.("temp") || os.tmpdir(), "coink-updates");
+    updateDirectory = options.updateDirectory || targetPath.join(app.getPath?.("temp") || os.tmpdir(), "coink-updates");
   let checkingMetadata = false,
     downloadActive = false,
     downloadReady = false,
@@ -354,7 +355,7 @@ function createUpdateManager(options) {
     publish("downloading", { visible:true });
     let lastProgress = -1;
     try {
-      const destination = path.join(updateDirectory, asset.name),
+      const destination = targetPath.join(updateDirectory, asset.name),
         downloader = options.downloadImpl || downloadReleaseAsset;
       downloadedPath = await downloader({
         asset,
