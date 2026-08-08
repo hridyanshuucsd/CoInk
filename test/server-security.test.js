@@ -2854,6 +2854,49 @@ test("same-origin symbolic math API verifies exact algebra without a model call"
   }
 });
 
+test("voice and image gateways enforce origin checks before server-side credentials", async () => {
+  const environment = serverEnv({
+      PENECHO_TEST_OPEN_ACCESS:"1",
+      COINK_REALTIME_API_KEY:"",
+      OPENAI_REALTIME_API_KEY:"",
+      COINK_IMAGE_API_KEY:"",
+      OPENAI_IMAGE_API_KEY:"",
+      OPENAI_API_KEY:"",
+    }),
+    { child, origin } = await startServer(environment);
+  try {
+    const crossOriginVoice = await fetch(`${origin}/api/realtime/call`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/sdp", Origin:"https://attacker.example" },
+      body:"v=0\r\n",
+    });
+    assert.equal(crossOriginVoice.status, 403);
+
+    const unavailableVoice = await fetch(`${origin}/api/realtime/call`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/sdp", Origin:origin },
+      body:"v=0\r\n",
+    });
+    assert.equal(unavailableVoice.status, 503);
+
+    const crossOriginImage = await fetch(`${origin}/api/images/generate`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", Origin:"https://attacker.example" },
+      body:JSON.stringify({ prompt:"private", width:1024, height:1024 }),
+    });
+    assert.equal(crossOriginImage.status, 403);
+
+    const unavailableImage = await fetch(`${origin}/api/images/generate`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", Origin:origin },
+      body:JSON.stringify({ prompt:"private", width:1024, height:1024 }),
+    });
+    assert.equal(unavailableImage.status, 503);
+  } finally {
+    await stopServer(child);
+  }
+});
+
 test("API mode uses one configured key without probes or fallback credentials", () => {
   const server=fs.readFileSync(path.join(ROOT,"src","server","main.js"),"utf8"),cli=fs.readFileSync(path.join(ROOT,"src","cli","main.js"),"utf8"),configure=fs.readFileSync(path.join(ROOT,"src","cli","configure-ui.js"),"utf8");
   for(const source of [server,cli,configure])assert.doesNotMatch(source,/OPENAI_PRO_API_KEY/);
