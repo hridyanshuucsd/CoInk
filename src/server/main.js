@@ -1145,7 +1145,7 @@ function publicModelError(error, { clientError = false, timedOut = false, upstre
     return "AI service returned an invalid response. Please retry.";
   return "Could not reach the AI service. Please retry.";
 }
-const DEBUG_TOOLS = new Set(["write_text", "draw_formula", "plot_function", "draw", "animate_scene", "html_widget", "diagram_source", "erase"]),
+const DEBUG_TOOLS = new Set(["write_text", "handwrite_text", "draw_formula", "plot_function", "draw", "animate_scene", "html_widget", "diagram_source", "erase"]),
   DEBUG_ACTIONS = new Set(["auto", "hint", "continue", "explain", "plot", "answer", "normalize"]),
   DEBUG_INTENTS = new Set(["none", "hint", "continue", "explain", "plot", "correct", "erase", "answer", "typeset"]);
 function finiteDebugBox(value) {
@@ -2473,9 +2473,9 @@ function normalizeCommandPlacements(commands,payload){
   if(!Array.isArray(commands)||!commands.length)return commands;
   const metrics=command=>{
     if(command?.tool==="plot_function"&&Number.isFinite(command.w)&&Number.isFinite(command.h))return{fontSize:24,width:command.w,height:command.h};
-    const fontSize=Math.max(24,Math.min(650,+command?.fontSize||180)),lineHeight=command?.tool==="write_text"?Math.max(1,Math.min(2.2,+command.lineHeight||1.35)):1.8,
-      width=command?.tool==="write_text"&&Number.isFinite(command.maxWidth)?Math.max(fontSize,command.maxWidth):command?.tool==="draw_formula"?Math.min(5000,Math.max(fontSize,String(command.latex||"").length*fontSize*.72)):fontSize;
-    return { fontSize, width:Math.min(CANVAS_SIZE,width), height:Math.min(CANVAS_SIZE,Math.max(24,fontSize*lineHeight*(command?.tool==="write_text"?2:1))) };
+    const textTool=["write_text","handwrite_text"].includes(command?.tool),fontSize=Math.max(24,Math.min(650,+command?.fontSize||180)),lineHeight=textTool?Math.max(1,Math.min(2.2,+command.lineHeight||1.35)):1.8,
+      width=textTool&&Number.isFinite(command.maxWidth)?Math.max(fontSize,command.maxWidth):command?.tool==="draw_formula"?Math.min(5000,Math.max(fontSize,String(command.latex||"").length*fontSize*.72)):fontSize;
+    return { fontSize, width:Math.min(CANVAS_SIZE,width), height:Math.min(CANVAS_SIZE,Math.max(24,fontSize*lineHeight*(textTool?2:1))) };
   };
   if(payload.userAction==="normalize"&&payload.selectionContext?.box){
     return translateTypesetGroup(commands,payload.selectionContext.box,metrics);
@@ -2483,14 +2483,14 @@ function normalizeCommandPlacements(commands,payload){
   if(commands.length!==1)return commands;
   // Keep ordinary viewport placement conservative: only correct a clearly misplaced response.
   const capture=payload.captureRect,latest=payload.changedBox,padding=Math.max(80,Math.min(320,latest.h*.15)),command=commands[0];
-  if(!command||!["write_text","draw_formula"].includes(command.tool)||!Number.isFinite(command.x)||!Number.isFinite(command.y))return commands;
+  if(!command||!["write_text","handwrite_text","draw_formula"].includes(command.tool)||!Number.isFinite(command.x)||!Number.isFinite(command.y))return commands;
   const {fontSize,width,height}=metrics(command),farAbove=command.y+Math.max(fontSize,120)<capture.y,suspiciousTop=command.y<capture.y+Math.max(200,capture.h*.04)&&command.y+Math.max(fontSize,120)<latest.y-Math.max(400,capture.h*.12),farOutside=command.y>capture.y+capture.h||command.x>capture.x+capture.w||command.x+width<capture.x;
   if(!farAbove&&!suspiciousTop&&!farOutside)return commands;
   const x=Math.max(capture.x,Math.min(capture.x+capture.w-Math.min(width,capture.w),latest.x)),y=Math.max(0,Math.min(CANVAS_SIZE-height,Math.max(capture.y,Math.min(capture.y+capture.h-Math.min(height,capture.h),latest.y+latest.h+padding)))),next={...command,x,y};
-  if(command.tool==="write_text")next.maxWidth=Math.max(fontSize,Math.min(width,CANVAS_SIZE-x));
+  if(["write_text","handwrite_text"].includes(command.tool))next.maxWidth=Math.max(fontSize,Math.min(width,CANVAS_SIZE-x));
   return[next];
 }
-function hasInvalidTextLayout(result){return result.commands.some(command=>{const tool=command?.tool||command?.type||command?.name;return tool==="write_text"&&(!Number.isFinite(command.x)||!Number.isFinite(command.y)||!Number.isFinite(command.maxWidth))})}
+function hasInvalidTextLayout(result){return result.commands.some(command=>{const tool=command?.tool||command?.type||command?.name;return ["write_text","handwrite_text"].includes(tool)&&(!Number.isFinite(command.x)||!Number.isFinite(command.y)||!Number.isFinite(command.maxWidth))})}
 function hasInvalidDrawCommand(result){
   return result.commands.some(command=>(command?.tool||command?.type||command?.name)==="draw"&&!DRAW.normalize(command,CANVAS_SIZE));
 }
