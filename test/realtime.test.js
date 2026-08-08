@@ -18,7 +18,7 @@ test("Realtime voice uses an official selected OpenAI connection without exposin
     apiKey:"sk-private",
   }, {});
   assert.equal(configuration.available, true);
-  assert.equal(configuration.model, "gpt-realtime-2");
+  assert.equal(configuration.model, "gpt-realtime-2.1");
   const session = realtimeSession(configuration);
   assert.deepEqual(session.output_modalities, ["audio"]);
   assert.deepEqual(session.tools.map(tool => tool.name), ["canvas_commands", "verify_math"]);
@@ -34,7 +34,7 @@ test("Realtime voice can use a dedicated key and validates configuration", () =>
 test("Realtime WebRTC exchange posts SDP and session metadata server-side", async () => {
   const calls = [], answer = "v=0\r\no=answer\r\n";
   const result = await createRealtimeCall("v=0\r\no=offer\r\n", {
-    available:true, apiKey:"secret", model:"gpt-realtime-2", voice:"marin", eagerness:"auto",
+    available:true, apiKey:"secret", model:"gpt-realtime-2.1", voice:"marin", eagerness:"auto",
   }, {
     fetchImpl:async (url, options) => {
       calls.push({ url, options });
@@ -45,7 +45,7 @@ test("Realtime WebRTC exchange posts SDP and session metadata server-side", asyn
   assert.equal(calls[0].url, REALTIME_CALL_URL);
   assert.equal(calls[0].options.headers.Authorization, "Bearer secret");
   assert.equal(calls[0].options.body.get("sdp"), "v=0\r\no=offer\r\n");
-  assert.equal(JSON.parse(calls[0].options.body.get("session")).model, "gpt-realtime-2");
+  assert.equal(JSON.parse(calls[0].options.body.get("session")).model, "gpt-realtime-2.1");
 });
 
 test("Realtime WebRTC rejects malformed offers and answers", async () => {

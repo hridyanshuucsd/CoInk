@@ -31,7 +31,7 @@ test("voice tutor sends authenticated WebRTC, canvas, and exact-math tool traffi
 
 test("voice tutor configuration uses the current documented Realtime model", () => {
   const realtime = require("../src/server/realtime.js"), session = realtime.realtimeSession({ model:realtime.DEFAULT_REALTIME_MODEL, voice:"marin", eagerness:"auto" });
-  assert.equal(realtime.DEFAULT_REALTIME_MODEL, "gpt-realtime-2");
+  assert.equal(realtime.DEFAULT_REALTIME_MODEL, "gpt-realtime-2.1");
   assert.deepEqual(session.tools.map(tool => tool.name), ["canvas_commands", "verify_math"]);
   assert.match(session.instructions, /never claim to be human/i);
 });
