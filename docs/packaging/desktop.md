@@ -1,6 +1,6 @@
 # CoInk desktop packaging
 
-This directory is a self-contained desktop-packaging snapshot of CoInk 0.9.0. It keeps the existing browser canvas and CLI while adding an Electron shell for macOS and Windows.
+This directory contains the isolated desktop toolchain for the current CoInk release. It packages the browser canvas and CLI inside an Electron shell for macOS and Windows.
 
 End users do **not** need Node.js or Python. Electron bundles its own Chromium and Node.js runtime. API mode is the recommended beginner path. Codex CLI and Claude Code can also be installed from the setup page without opening a terminal.
 
@@ -54,7 +54,7 @@ Windows installers cannot be created reliably on this Mac without Wine/Mono and 
 
 ## Icons
 
-The icon master is the same `public/penecho-mark.png` used by the website. Generate all platform assets with:
+The icon master is the same `public/icon.svg` used by the website. Generate all platform assets with:
 
 ```bash
 npm run icons
@@ -62,12 +62,12 @@ npm run icons
 
 Generated production assets:
 
-- `build/icons/penecho-1024.png`
-- `build/icons/penecho.png`
-- `build/icons/penecho.icns`
-- `build/icons/penecho.ico`
+- `build/icons/coink-1024.png`
+- `build/icons/coink.png`
+- `build/icons/coink.icns`
+- `build/icons/coink.ico`
 
-The website brand icon is applied to the app bundle, Dock/taskbar executable, DMG and Windows setup executable.
+The website brand icon is applied to the app bundle, Dock/taskbar executable, macOS ZIP, and Windows setup executable.
 
 ## Signing and notarization
 
@@ -91,13 +91,13 @@ Azure Artifact Signing can replace the PFX path later if the publisher account i
 
 ## GitHub Releases
 
-Keep source, icon masters, Forge configuration and the workflow in the source branch. Do not commit DMG/EXE/ZIP files to Git. Release binaries belong in a version-specific GitHub Release such as `v0.9.0`.
+Keep source, icon masters, Forge configuration and the workflow in the source branch. Do not commit EXE/ZIP files to Git. Release binaries belong in a version-specific GitHub Release such as `v0.2.0`.
 
 The workflow can be run manually for private testing. When triggered by a `v*` tag, it creates a **draft** GitHub Release and uploads the installers. Test every installer before publishing the draft.
 
 Packaged apps check for updates shortly after launch and every six hours. `Help -> Check for Updates…` also provides a manual check. CoInk reads the latest published release directly from the public GitHub Releases API, shows the release notes, and waits for the user to approve the download.
 
-Only published GitHub Releases are offered. Drafts and prereleases are not installed as normal updates. The updater accepts only the exact asset name for the current platform and architecture, only downloads it from the `penecho/penecho` GitHub Release path over HTTPS, and checks GitHub's SHA-256 digest when it is available.
+Only published GitHub Releases are offered. Drafts and prereleases are not installed as normal updates. The updater accepts only the exact asset name for the current platform and architecture, only downloads it from the `hridyanshuucsd/CoInk` GitHub Release path over HTTPS, and checks GitHub's SHA-256 digest when it is available.
 
 Unsigned builds can update during the pre-signing release phase:
 
@@ -108,13 +108,11 @@ These paths intentionally do not invoke Electron's native `autoUpdater`, because
 
 Recommended public assets:
 
-- `CoInk-0.9.0-mac-arm64.dmg`
-- `CoInk-0.9.0-mac-x64.dmg`
-- `CoInk-0.9.0-mac-arm64.zip`
-- `CoInk-0.9.0-mac-x64.zip`
-- `CoInk-Setup-0.9.0-win-x64.exe`
+- `CoInk-0.2.0-mac-arm64.zip`
+- `CoInk-0.2.0-mac-x64.zip`
+- `CoInk-Setup-0.2.0-win-x64.exe`
 - `RELEASES`
-- `penecho-0.9.0-full.nupkg`
+- `coink-tutor-0.2.0-full.nupkg`
 - `SHA256SUMS-<platform>-<arch>.txt`
 
-The DMG and Setup executable are the visible installers. CoInk uses the macOS ZIP and Windows Setup executable for in-app updates, so those assets must remain attached when the draft is published. `RELEASES` and `.nupkg` remain useful Squirrel release artifacts but are not downloaded by CoInk's unsigned update path.
+The macOS ZIP and Windows Setup executable are the user-facing packages and in-app update assets, so they must remain attached when the draft is published. DMG generation is intentionally omitted until its upstream icon-parser dependency has a patched release. `RELEASES` and `.nupkg` remain useful Squirrel release artifacts but are not downloaded by CoInk's unsigned update path.
