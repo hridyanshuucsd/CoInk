@@ -284,8 +284,15 @@ class KimiAcpClient {
     this.pending.clear();
     this.activeRequest?.fail(error);
     if (child) {
+      const exited = child.exitCode !== null || child.signalCode !== null
+        ? Promise.resolve()
+        : new Promise(resolve => {
+            child.once("exit", resolve);
+            child.once("error", resolve);
+          });
       try { child.stdin.end(); } catch {}
       try { child.kill(); } catch {}
+      await Promise.race([exited, new Promise(resolve => setTimeout(resolve, 2000))]);
     }
   }
 }
