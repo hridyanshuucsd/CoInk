@@ -10170,10 +10170,11 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     const capture = packed.captureRect,
       padding = Math.max(80, Math.min(320, latestBox.h * 0.15)),
       command = commands[0];
-    if (command.tool !== "write_text" && command.tool !== "draw_formula") return commands;
+    if (!["write_text", "handwrite_text", "draw_formula"].includes(command.tool)) return commands;
     if (packed.selectionContext) return commands;
-    const width = command.tool === "write_text" ? command.maxWidth : command.fontSize,
-      height = command.tool === "write_text" ? command.fontSize * command.lineHeight * 2 : command.fontSize * 1.8,
+    const textTool = ["write_text", "handwrite_text"].includes(command.tool),
+      width = textTool ? command.maxWidth : command.fontSize,
+      height = textTool ? command.fontSize * command.lineHeight * 2 : command.fontSize * 1.8,
       farAbove = command.y + Math.max(command.fontSize || 100, 120) < capture.y,
       suspiciousCanvasTop = command.y < capture.y + Math.max(200, capture.h * 0.04) && command.y + Math.max(command.fontSize || 100, 120) < latestBox.y - Math.max(400, capture.h * 0.12),
       farOutside = command.y > capture.y + capture.h || command.x > capture.x + capture.w || command.x + width < capture.x;
@@ -10182,7 +10183,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       preferredY = Math.max(capture.y, Math.min(capture.y + capture.h - Math.min(height, capture.h), latestBox.y + latestBox.h + padding));
     next.x = Math.max(capture.x, Math.min(capture.x + capture.w - Math.min(width, capture.w), latestBox.x));
     next.y = Math.max(0, Math.min(SIZE - height, preferredY));
-    if (next.tool === "write_text") next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE - next.x));
+    if (textTool) next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE - next.x));
     return [next];
   }
   function widgetGeometryForViewport(visibleRect) {
@@ -10227,7 +10228,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     let plotPixels = 0,
       widgetSlots = widgetEditTarget ? 1 : Math.max(0, MAX_VISIBLE_WIDGETS - state.widgets.length),
       widgetPluginIds = new Set(enabledPluginDescriptors().map((plugin) => plugin.id));
-    const acceptedTools = ["write_text", "draw_formula", "plot_function", "draw", "erase"];
+    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "draw", "erase"];
     if (widgetPluginIds.size) acceptedTools.push("html_widget");
     if (widgetPluginIds.has("flowchart")) acceptedTools.push("diagram_source");
     const validated = cmds
@@ -10242,6 +10243,16 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
           c.fontSize = matchedTextFontSize(c.fontSize, c.text);
           c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
           c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.35));
+          c.color = aiColor;
+          if (c.maxWidth < c.fontSize) return null;
+          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
+        }
+        if (c.tool === "handwrite_text") {
+          if (!n(c.x) || !n(c.y) || typeof c.text !== "string" || !Number.isFinite(c.maxWidth)) return null;
+          c.text = c.text.slice(0, AI_TEXT_MAX_LENGTH);
+          c.fontSize = matchedFontSize(c.fontSize);
+          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
+          c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.3));
           c.color = aiColor;
           if (c.maxWidth < c.fontSize) return null;
           c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
@@ -10388,6 +10399,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
           pendingCommand = c;
         if (c.tool === "write_text") {
           image = textImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, state.aiFont, AI_TEXT_MAX_LENGTH, sharpRenderRatio());
+        } else if (c.tool === "handwrite_text") {
+          image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
         } else if (c.tool === "draw_formula") {
           image = await formulaImage(c.latex, c.fontSize, c.color);
         } else if (c.tool === "plot_function") {
@@ -10430,6 +10443,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       y = c.y,
       pendingCommand = c;
     if (c.tool === "write_text") image = textImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, state.aiFont, AI_TEXT_MAX_LENGTH, sharpRenderRatio());
+    else if (c.tool === "handwrite_text") image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
     else if (c.tool === "draw_formula") image = await formulaImage(c.latex, c.fontSize, c.color);
     else if (c.tool === "plot_function") image = plot(c);
     else if (c.tool === "animate_scene") {
@@ -10461,11 +10475,11 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function resolvePendingItemOverlaps(items, meta) {
     const gap = Math.max(40, 14 / Math.max(0.03, state.scale)),
       flow = items
-        .filter((item) => ["write_text", "draw_formula"].includes(item.command.tool))
+        .filter((item) => ["write_text", "handwrite_text", "draw_formula"].includes(item.command.tool))
         .sort((a, b) => a.y - b.y || a.x - b.x),
       placed = [],
       fixed = items
-        .filter((item) => !["write_text", "draw_formula", "draw"].includes(item.command.tool))
+        .filter((item) => !["write_text", "handwrite_text", "draw_formula", "draw"].includes(item.command.tool))
         .map((item) => item.erase ? item.bounds : { x: item.x, y: item.y, w: item.layoutWidth, h: item.layoutHeight });
     for (const item of flow) {
       const width = item.image.logicalWidth || item.image.width,
@@ -10524,6 +10538,43 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     image.naturalWidth = naturalWidth;
     image.logicalWidth = naturalWidth;
     image.logicalHeight = naturalHeight;
+    return image;
+  }
+  let handwritingModulePromise = null;
+  async function handwritingImage(text, f, color, maxWidth = 900, lineHeight = 1.3, pixelRatio = 1) {
+    handwritingModulePromise ||= import("/handwriting.js");
+    const { layoutHandwriting } = await handwritingModulePromise,
+      padding = Math.max(8, f * 0.22),
+      layout = layoutHandwriting(String(text).slice(0, AI_TEXT_MAX_LENGTH), {
+        x:padding,
+        y:padding,
+        fontSize:f,
+        maxWidth:Math.max(f, maxWidth - padding * 2),
+        lineHeight,
+        color:color || "#2563eb",
+        width:Math.max(2, Math.min(12, f / 16)),
+      }),
+      bounds = layout.bounds,
+      naturalWidth = Math.ceil(Math.max(f, Math.min(maxWidth, (bounds?.maxX || f) + padding))),
+      naturalHeight = Math.ceil(Math.max(f * lineHeight + padding * 2, (bounds?.maxY || f) + padding)),
+      rasterScale = rasterScaleFor(naturalWidth, naturalHeight, pixelRatio),
+      image = offscreen(Math.max(1, Math.ceil(naturalWidth * rasterScale)), Math.max(1, Math.ceil(naturalHeight * rasterScale))),
+      q = image.getContext("2d");
+    q.scale(rasterScale, rasterScale);
+    q.strokeStyle = color || "#2563eb";
+    q.lineCap = q.lineJoin = "round";
+    for (const stroke of layout.strokes) {
+      if (!stroke.points?.length) continue;
+      q.beginPath();
+      q.lineWidth = stroke.width;
+      q.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let index = 1; index < stroke.points.length; index++) q.lineTo(stroke.points[index].x, stroke.points[index].y);
+      q.stroke();
+    }
+    image.revealRows = [naturalWidth];
+    image.revealRowHeight = naturalHeight;
+    image.naturalWidth = image.logicalWidth = naturalWidth;
+    image.naturalHeight = image.logicalHeight = naturalHeight;
     return image;
   }
   function layoutText(content, context, maxWidth) {
@@ -10787,7 +10838,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     });
   }
   function copyTextForCommand(command) {
-    if (command?.tool === "write_text" && typeof command.text === "string") return command.text;
+    if (["write_text", "handwrite_text"].includes(command?.tool) && typeof command.text === "string") return command.text;
     if (command?.tool === "draw_formula" && typeof command.latex === "string") return command.latex;
     return null;
   }
