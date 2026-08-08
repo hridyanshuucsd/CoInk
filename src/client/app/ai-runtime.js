@@ -1154,6 +1154,43 @@
     image.logicalHeight = naturalHeight;
     return image;
   }
+  let handwritingModulePromise = null;
+  async function handwritingImage(text, f, color, maxWidth = 900, lineHeight = 1.3, pixelRatio = 1) {
+    handwritingModulePromise ||= import("/handwriting.js");
+    const { layoutHandwriting } = await handwritingModulePromise,
+      padding = Math.max(8, f * 0.22),
+      layout = layoutHandwriting(String(text).slice(0, AI_TEXT_MAX_LENGTH), {
+        x:padding,
+        y:padding,
+        fontSize:f,
+        maxWidth:Math.max(f, maxWidth - padding * 2),
+        lineHeight,
+        color:color || "#2563eb",
+        width:Math.max(2, Math.min(12, f / 16)),
+      }),
+      bounds = layout.bounds,
+      naturalWidth = Math.ceil(Math.max(f, Math.min(maxWidth, (bounds?.maxX || f) + padding))),
+      naturalHeight = Math.ceil(Math.max(f * lineHeight + padding * 2, (bounds?.maxY || f) + padding)),
+      rasterScale = rasterScaleFor(naturalWidth, naturalHeight, pixelRatio),
+      image = offscreen(Math.max(1, Math.ceil(naturalWidth * rasterScale)), Math.max(1, Math.ceil(naturalHeight * rasterScale))),
+      q = image.getContext("2d");
+    q.scale(rasterScale, rasterScale);
+    q.strokeStyle = color || "#2563eb";
+    q.lineCap = q.lineJoin = "round";
+    for (const stroke of layout.strokes) {
+      if (!stroke.points?.length) continue;
+      q.beginPath();
+      q.lineWidth = stroke.width;
+      q.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let index = 1; index < stroke.points.length; index++) q.lineTo(stroke.points[index].x, stroke.points[index].y);
+      q.stroke();
+    }
+    image.revealRows = [naturalWidth];
+    image.revealRowHeight = naturalHeight;
+    image.naturalWidth = image.logicalWidth = naturalWidth;
+    image.naturalHeight = image.logicalHeight = naturalHeight;
+    return image;
+  }
   function layoutText(content, context, maxWidth) {
     const lines = [];
     for (const explicitLine of content.replace(/\r/g, "").split("\n")) {
