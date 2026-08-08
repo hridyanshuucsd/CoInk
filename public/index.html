@@ -99,6 +99,12 @@
               <span data-i18n="plugins">Plugins</span>
             </button>
           </div>
+          <div id="voiceControl" class="voice-control">
+            <button id="voiceTutorBtn" class="voice-tutor-trigger" type="button" aria-pressed="false" data-i18n-aria="voiceTutor" aria-label="Start voice tutor" data-i18n-title="voiceTutor" title="Start voice tutor">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 10a6 6 0 0 0 12 0M12 16v5M9 21h6"/></svg>
+              <span data-i18n="voice">Voice</span><i id="voiceLevel" aria-hidden="true"></i>
+            </button>
+          </div>
           </div>
           <div class="mode-tools">
             <button id="handToolBtn" data-mode="hand" class="icon-button" type="button" aria-pressed="false" data-i18n-aria="hand" aria-label="Hand tool: move canvas and objects" data-i18n-title="hand" title="Hand tool: move canvas and objects">
@@ -626,6 +632,7 @@
       </div>
     </section>
   </div>
+  <audio id="voiceTutorAudio" hidden></audio>
   <script src="/api/config.js"></script>
   <script src="locales/zh.js"></script>
   <script src="draw.js"></script>
