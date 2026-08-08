@@ -176,10 +176,10 @@ async function maybeUpdateOnStart(argv, options = {}) {
   try {
     if (typeof options.updateFinalizer === "function") await options.updateFinalizer();
   } catch (error) {
-    errorOutput.write(`CoInk was updated, but the current service could not stop: ${error.message}\nStop it manually, then run \`penecho\` to start v${latest}.\n`);
+    errorOutput.write(`CoInk was updated, but the current service could not stop: ${error.message}\nStop it manually, then run \`coink-tutor\` to start v${latest}.\n`);
     return { checked:true, latest, updated:true, restarted:false, exitCode:1 };
   }
-  output.write(`Update complete. Run \`penecho\` again to start v${latest}.\n`);
+  output.write(`Update complete. Run \`coink-tutor\` again to start v${latest}.\n`);
   return { checked:true, latest, updated:true, restarted:false };
 }
 
