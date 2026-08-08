@@ -199,6 +199,14 @@ input[type="range"] { width: 62px; accent-color: #c39d57; cursor: pointer; }
 .toolbar .plugin-trigger { height: 27px; min-height: 27px; padding: 3px 9px; color: var(--ink); border: 0; background: transparent; }
 .toolbar .plugin-trigger:hover { color: var(--gold-bright); border-color: transparent; background: transparent; }
 .plugin-control:focus-within { border-color: var(--gold-bright); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold-bright) 28%, transparent), inset 0 1px rgba(255,255,255,.04); }
+.voice-control { display: inline-flex; height: 29px; min-height: 29px; align-items: center; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--line) 78%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--panel-raised) 78%, transparent); }
+.toolbar .voice-tutor-trigger { height: 27px; min-height: 27px; padding: 3px 8px; color: var(--ink); border: 0; background: transparent; }
+.toolbar .voice-tutor-trigger:hover { color: var(--gold-bright); border-color: transparent; background: transparent; }
+.toolbar .voice-tutor-trigger.connected { color: #fff; background: #2563eb; }
+.toolbar .voice-tutor-trigger.connecting { cursor: progress; }
+.voice-tutor-trigger i { width: 3px; height: 14px; border-radius: 999px; background: currentColor; opacity: .72; transform: scaleY(max(.18, var(--voice-level, .18))); transition: transform 70ms linear; }
+.voice-tutor-trigger.connected svg { animation: voiceTutorPulse 1.8s ease-in-out infinite; }
+@keyframes voiceTutorPulse { 50% { transform: scale(1.08); } }
 .effort-popover { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: 184px; padding: 5px; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--panel-raised) 96%, transparent); box-shadow: 0 12px 28px #0009; }
 .effort-popover[hidden] { display: none; }
 .plugin-control { position: relative; z-index: 9; flex: 0 0 auto; }
@@ -873,6 +881,8 @@ body[data-theme="research"] footer, body[data-theme="research"] #coords { color:
   .canvas-file-actions button, #settingsBtn { width: 34px; height: 34px; flex-basis: 34px; }
   .plugin-control { height: 38px; min-height: 38px; }
   .toolbar .plugin-trigger { height: 36px; min-height: 36px; }
+  .voice-control { height: 38px; min-height: 38px; }
+  .toolbar .voice-tutor-trigger { height: 36px; min-height: 36px; }
   .toolbar .icon-button { width: 38px; }
   .color-orb-control { width: 38px; height: 38px; flex-basis: 38px; }
   .toolbar .color-orb-trigger { inset: 3px; width: 32px; min-height: 32px; }
