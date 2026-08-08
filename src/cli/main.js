@@ -514,7 +514,7 @@ async function runDoctor(args, configuration, options = {}) {
     report(false, `AI_PROVIDER must be ${PROVIDER_OPTIONS}`);
   } else if (configuration.provider === "api") {
     const issues = apiConfigurationIssues(configuration.env);
-    report(issues.length === 0, issues.length ? `API configuration is incomplete: ${issues.join(", ")}. Run \`penecho configure\`.` : "API configuration is ready (no paid request was made)");
+    report(issues.length === 0, issues.length ? `API configuration is incomplete: ${issues.join(", ")}. Run \`coink-tutor configure\`.` : "API configuration is ready (no paid request was made)");
   } else if (configuration.provider === "kimi-cli") {
     const kimi = await runKimiPreflight(configuration, { runner:options.runner });
     report(kimi.ok, kimi.ok ? `${kimi.version}; executable is ready (authentication is checked when Kimi handles the first request)` : kimi.error);
@@ -563,14 +563,14 @@ function schedulePostStartUpdate(server, argv, options, output, errorOutput) {
 
 
 function helpText() {
-  return `CoInk ${PACKAGE_JSON.version}\n\nUsage:\n  penecho [--config FILE] [--port 3888]\n  penecho configure [--config FILE]\n  penecho doctor [--api|--kimi|--codex|--claude] [--config FILE]\n  penecho --kimi [--model MODEL] [--effort LEVEL]\n  penecho --codex [--model MODEL] [--effort LEVEL]\n  penecho --claude [--model MODEL] [--effort LEVEL]\n\nOptions:\n  --config <file>   Use this configuration file instead of ~/.penecho/config.env\n  --api             Use an OpenAI-compatible or Anthropic-compatible API\n  --kimi            Use the authenticated Kimi Code CLI\n  --codex           Use the authenticated Codex CLI\n  --claude          Use the authenticated Claude CLI\n  --model <model>   Override the model for a CLI mode\n  --effort <level>  Override reasoning effort with a known or CLI-supported value\n  --port <port>     Override the configured listening port\n  -h, --help        Show help\n  -v, --version     Show version\n\nRun \`penecho configure\` for the interactive configuration center. Known effort values include none, low, medium, high, xhigh, and max; other strings are passed through.\n\nKimi Code CLI installation (run these yourself):\n  macOS/Linux: curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash\n  Windows PowerShell: irm https://code.kimi.com/kimi-code/install.ps1 | iex\n  Then: kimi --version && kimi login\n  Official guide: https://github.com/MoonshotAI/kimi-code\n\nExamples:\n  penecho configure\n  penecho\n  penecho --config ./team.env\n  penecho --kimi\n  penecho --codex --model gpt-5.6-sol --effort xhigh\n`;
+  return `CoInk ${PACKAGE_JSON.version}\n\nUsage:\n  coink-tutor [--config FILE] [--port 3888]\n  coink-tutor configure [--config FILE]\n  coink-tutor doctor [--api|--kimi|--codex|--claude] [--config FILE]\n  coink-tutor --kimi [--model MODEL] [--effort LEVEL]\n  coink-tutor --codex [--model MODEL] [--effort LEVEL]\n  coink-tutor --claude [--model MODEL] [--effort LEVEL]\n\nOptions:\n  --config <file>   Use this configuration file instead of ~/.coink/config.env\n  --api             Use an OpenAI-compatible or Anthropic-compatible API\n  --kimi            Use the authenticated Kimi Code CLI\n  --codex           Use the authenticated Codex CLI\n  --claude          Use the authenticated Claude CLI\n  --model <model>   Override the model for a CLI mode\n  --effort <level>  Override reasoning effort with a known or CLI-supported value\n  --port <port>     Override the configured listening port\n  -h, --help        Show help\n  -v, --version     Show version\n\nRun \`coink-tutor configure\` for the interactive configuration center. Known effort values include none, low, medium, high, xhigh, and max; other strings are passed through.\n\nKimi Code CLI installation (run these yourself):\n  macOS/Linux: curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash\n  Windows PowerShell: irm https://code.kimi.com/kimi-code/install.ps1 | iex\n  Then: kimi --version && kimi login\n  Official guide: https://github.com/MoonshotAI/kimi-code\n\nExamples:\n  coink-tutor configure\n  coink-tutor\n  coink-tutor --config ./team.env\n  coink-tutor --kimi\n  coink-tutor --codex --model gpt-5.6-sol --effort xhigh\n`;
 }
 
 async function main(argv = process.argv.slice(2), options = {}) {
   const output = options.output || process.stdout, errorOutput = options.errorOutput || process.stderr;
   let args;
   try { args = parseArgs(argv); }
-  catch (error) { errorOutput.write(`CoInk: ${error.message}\nRun \`penecho --help\` for usage.\n`); return 1; }
+  catch (error) { errorOutput.write(`CoInk: ${error.message}\nRun \`coink-tutor --help\` for usage.\n`); return 1; }
   if (args.help) { output.write(helpText()); return 0; }
   if (args.version) { output.write(`${PACKAGE_JSON.version}\n`); return 0; }
   if (args.command === "start") output.write(`CoInk v${PACKAGE_JSON.version}\n`);
@@ -607,39 +607,39 @@ async function main(argv = process.argv.slice(2), options = {}) {
     const input = options.input || process.stdin,
       interactive = Boolean(options.ui?.interactive || options.allowNonInteractive || input.isTTY && output.isTTY);
     if (!interactive) {
-      errorOutput.write(`CoInk is not configured. Run \`penecho configure${args.config ? ` --config ${args.config}` : ""}\` in a terminal first.\n`);
+      errorOutput.write(`CoInk is not configured. Run \`coink-tutor configure${args.config ? ` --config ${args.config}` : ""}\` in a terminal first.\n`);
       return 1;
     }
     output.write(`CoInk has no saved configuration. Opening the configuration center at ${configuration.configFile}.\n`);
     if (!await configure("")) return 1;
   }
   if (!configuration.provider) {
-    errorOutput.write(`CoInk has no LLM source. Run \`penecho configure\` and select Kimi CLI, Claude CLI, Codex CLI, or API.\n`);
+    errorOutput.write(`CoInk has no LLM source. Run \`coink-tutor configure\` and select Kimi CLI, Claude CLI, Codex CLI, or API.\n`);
     return 1;
   }
   if (configuration.provider === "api") {
     const issues = apiConfigurationIssues(configuration.env);
     if (issues.length) {
-      errorOutput.write(`CoInk API configuration is incomplete: ${issues.join(", ")}.\nRun \`penecho configure\` to correct it.\n`);
+      errorOutput.write(`CoInk API configuration is incomplete: ${issues.join(", ")}.\nRun \`coink-tutor configure\` to correct it.\n`);
       return 1;
     }
   } else if (configuration.provider === "kimi-cli") {
     const kimi = await runKimiPreflight(configuration, { runner:options.runner });
     if (!kimi.ok) {
-      errorOutput.write(`CoInk Kimi check failed: ${kimi.error}\nRun \`penecho doctor --kimi\` for full diagnostics.\n`);
+      errorOutput.write(`CoInk Kimi check failed: ${kimi.error}\nRun \`coink-tutor doctor --kimi\` for full diagnostics.\n`);
       return 1;
     }
     output.write(`CoInk is using Kimi CLI (${kimi.version}).\nIf Canvas requests cannot reach Kimi, verify or install the CLI yourself:\n  macOS/Linux: curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash\n  Windows PowerShell: irm https://code.kimi.com/kimi-code/install.ps1 | iex\n  Verify: kimi --version\n  Authenticate: kimi login\n  Official guide: https://github.com/MoonshotAI/kimi-code\n`);
   } else if (configuration.provider === "codex-cli") {
     const codex = await runCodexPreflight(configuration, { runner: options.runner });
     if (!codex.ok) {
-      errorOutput.write(`CoInk Codex check failed: ${codex.error}\nRun \`penecho doctor --codex\` for full diagnostics.\n`);
+      errorOutput.write(`CoInk Codex check failed: ${codex.error}\nRun \`coink-tutor doctor --codex\` for full diagnostics.\n`);
       return 1;
     }
   } else {
     const claude = await runClaudePreflight(configuration, { runner: options.runner });
     if (!claude.ok) {
-      errorOutput.write(`CoInk Claude check failed: ${claude.error}\nRun \`penecho doctor --claude\` for full diagnostics.\n`);
+      errorOutput.write(`CoInk Claude check failed: ${claude.error}\nRun \`coink-tutor doctor --claude\` for full diagnostics.\n`);
       return 1;
     }
   }
