@@ -103,7 +103,7 @@ test("available updates default to yes, install globally, stop the service, and 
   assert.match(output.text(), /newer CoInk version.*v99\.0\.0/i);
   assert.match(output.text(), /Updating CoInk/);
   assert.match(output.text(), /installed successfully/);
-  assert.match(output.text(), /Run `penecho` again/);
+  assert.match(output.text(), /Run `coink-tutor` again/);
   assert.doesNotMatch(output.text(), /Restarting/);
   assert.equal(errors.text(), "");
 });
