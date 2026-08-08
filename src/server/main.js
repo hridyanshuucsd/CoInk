@@ -3007,6 +3007,29 @@ const server = http.createServer(async (req, res) => {
     if (!fs.existsSync(file)) return send(res, 404, "No debug model exchange yet.\n", "text/plain; charset=utf-8");
     return send(res, 200, fs.readFileSync(file,"utf8"), "application/json; charset=utf-8");
   }
+  if (req.method === "POST" && url.pathname === "/api/realtime/call") {
+    const requestId = crypto.randomUUID(), started = Date.now(), controller = new AbortController(), abort = () => { if (!res.writableEnded) controller.abort(); };
+    req.once("aborted", abort);
+    res.once("close", abort);
+    try {
+      const authorizationError = browserRequestError(req);
+      if (authorizationError) return send(res, 403, { error:authorizationError, requestId });
+      if (String(req.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase() !== "application/sdp") return send(res, 415, { error:"Realtime voice requires application/sdp.", requestId });
+      const providerSnapshot = requestProviderSnapshot(req), configuration = realtimeConfiguration(providerSnapshot);
+      if (!configuration.available) return send(res, 503, { error:configuration.error, requestId });
+      const answer = await createRealtimeCall(await readText(req, 256 * 1024), configuration, { signal:controller.signal });
+      log({ type:"realtime-call", requestId, ip:req.socket.remoteAddress, model:configuration.model, voice:configuration.voice, status:201, elapsedMs:Date.now()-started });
+      return send(res, 201, answer, "application/sdp");
+    } catch (error) {
+      const timedOut = error?.name === "AbortError", status = error?.message === "Request too large" ? 413 : timedOut ? 504 : Number.isInteger(error?.status) ? error.status : 502;
+      log({ type:"realtime-call", requestId, ip:req.socket.remoteAddress, status, elapsedMs:Date.now()-started, error:timedOut ? "timeout" : "failed" });
+      if (!res.writableEnded && !res.destroyed) return send(res, status, { error:error?.message || "Unable to start Realtime voice.", requestId });
+    } finally {
+      req.removeListener("aborted", abort);
+      res.removeListener("close", abort);
+    }
+    return;
+  }
   if (req.method === "POST" && url.pathname === "/api/math/verify") {
     try {
       const authorizationError = browserRequestError(req);
