@@ -321,8 +321,9 @@ test("desktop shell and Forge config keep the renderer isolated and package nati
   }
   assert.ok(rootPackage.files.includes("public/desktop-update.css"));
   assert.match(html, /value="0\.0\.0\.0" selected/);
-  assert.match(html, /platform\.kimi\.com\?aff=penecho/);
-  assert.match(html, /platform\.kimi\.ai\?aff=penecho/);
+  assert.match(html, /https:\/\/platform\.kimi\.com/);
+  assert.match(html, /https:\/\/platform\.kimi\.ai/);
+  assert.doesNotMatch(html, /[?&]aff=/);
   assert.match(html, /Content-Security-Policy/);
 });
 
