@@ -239,8 +239,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   const PLUGIN_TEMPLATE_STYLES = Object.freeze({ simple:"" });
   const I18N = {
     en: {
-      title: "PenEcho | Handwritten AI Canvas",
-      tagline: "Write across twenty thousand squares and summon knowledge",
+      title: "CoInk Tutor | Voice and handwriting canvas",
+      tagline: "Think aloud with a tutor who sees, speaks, and writes beside you",
       taglineArcane: "Interdisciplinary intuition, creative synthesis, and exploratory explanation",
       taglineScifi: "Engineering, programming, system design, and future-technology analysis",
       taglineResearch: "Mathematical physics, rigorous teaching, and verifiable code",
@@ -373,7 +373,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       plot: "Plot",
       tip: "Pan: middle-mouse drag, Hand tool, or one finger · Zoom: wheel or pinch",
       tourReplay: "Feature tour",
-      tourDialog: "PenEcho feature tour",
+      tourDialog: "CoInk feature tour",
       tourBadge: "Quick tour",
       tourBadgeNew: "What's new",
       tourProgress: "Tour progress",
@@ -406,7 +406,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       tourStatusBody: "This status indicator reports when AI is observing, writing, finished, delayed, or needs confirmation. When a multi-part draft is ready, nearby controls let you accept or discard the complete response.",
       tourCanvasTitle: "Navigate the large canvas",
       tourCanvasBody: "Write with a mouse or stylus. Pan with one finger, the middle mouse button, or Alt-drag. Zoom with a wheel or trackpad, and pinch with two fingers. Your pointer position and zoom level are shown below the canvas.",
-      changelogDialog: "PenEcho release notes",
+      changelogDialog: "CoInk release notes",
       changelogClose: "Close release notes",
       changelogBadge: "What's new",
       changelogTitle: "Refine, projects, and flexible AI connections",
@@ -465,7 +465,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       settingsConnectionSaved: "Connection saved. Devices using it will apply the changes to new requests immediately.",
       settingsDeleteConfirm: "Delete this connection?",
       settingsSystemDialogTitle: "System settings",
-      settingsSystemDialogSubtitle: "Saved changes take effect after PenEcho restarts.",
+      settingsSystemDialogSubtitle: "Saved changes take effect after CoInk restarts.",
       settingsKeySaved: "Key saved",
       settingsApiFormat: "API format",
       settingsApiRegion: "Access region",
@@ -477,7 +477,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       settingsApiModel: "Model",
       settingsApiUrl: "Base URL",
       settingsApiKey: "API key",
-      settingsApiKeyHelp: "Stored only in the local PenEcho configuration file.",
+      settingsApiKeyHelp: "Stored only in the local CoInk configuration file.",
       settingsSystemSection: "System",
       settingsSystemDescription: "Simple defaults for requests and canvas behavior.",
       settingsEffort: "Reasoning",
@@ -493,7 +493,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       settingsLoadFailed: "Could not load settings.",
       settingsSaving: "Saving…",
       settingsProviderApplied: "Saved and applied. New AI requests will use this connection immediately—no restart required.",
-      settingsSystemSaved: "Saved. Restart PenEcho to apply these system changes.",
+      settingsSystemSaved: "Saved. Restart CoInk to apply these system changes.",
       settingsCanvasSection: "Canvas preferences",
       settingsWidgetShadow: "Widget & image shadows",
       settingsAISection: "AI",
@@ -526,7 +526,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       summonTip7: "Tip: Real Photo Search places sourced web photos directly on the canvas.",
       summonTip8: "Tip: use Hand to move and freely resize images, animations, and AI widgets.",
       summonTip9: "Tip: remote images remain included when you save the canvas or export a PNG.",
-      summonTip10: "Tip: save a canvas to the PenEcho server so other authorized devices can open it.",
+      summonTip10: "Tip: save a canvas to the CoInk server so other authorized devices can open it.",
       summonTip11: "Tip: pause a few seconds after writing and AI replies on its own; auto mode can be toggled in Settings.",
       summonTip12: "Tip: click the AI orb on the canvas to manually pick Answer, Hint, Continue, Explain, or Plot.",
       summonTip13: "Tip: circle content with the lasso and AI will work only on that selection.",
@@ -541,16 +541,16 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       summonTip22: "Tip: tap a widget, or hover it with a mouse, to reveal AI Refine.",
       summonTip23: "Tip: AI Refine uses the newest strokes, text, and images in this view as instructions.",
       summonTip24: "Tip: use AI Refine to update a widget in place; regular AI adds a new widget.",
-      debugTitle: "PenEcho debug",
+      debugTitle: "CoInk debug",
       openLocalLog: "Open local server log",
       history: "Canvas history",
       historyTitle: "Canvas history",
       historyDescription: "Stores confirmed canvas content, including restorable animation scenes. Unconfirmed AI drafts are excluded.",
       saveLocation: "Save location",
       storageThisDevice: "This device",
-      storagePenEchoServer: "PenEcho server",
+      storageCoInkServer: "CoInk server",
       storageThisDeviceDescription: "Saved only in this browser on this device. Other devices cannot see it.",
-      storagePenEchoServerDescription: "Saved on the computer running PenEcho. Anyone using this PenEcho service can see it after passing its access check.",
+      storageCoInkServerDescription: "Saved on the computer running CoInk. Anyone using this CoInk service can see it after passing its access check.",
       canvasProject: "Project",
       canvasProjectAll: "All projects",
       canvasProjectUncategorized: "Uncategorized",
@@ -588,7 +588,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       loadSnapshot: "Load",
       deleteSnapshot: "Delete",
       emptyDeviceHistory: "No canvases saved on this device yet",
-      emptyServerHistory: "No canvases saved on this PenEcho server yet",
+      emptyServerHistory: "No canvases saved on this CoInk server yet",
       emptyProjectHistory: "No canvases saved in this project yet",
       emptyCanvas: "The canvas is empty",
       snapshotSaved: "Canvas snapshot saved",
@@ -603,7 +603,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       snapshotImages: "images",
       snapshotModified: "Modified {time}",
       deleteSnapshotConfirmDevice: "Delete this snapshot from this device?",
-      deleteSnapshotConfirmServer: "Delete this shared snapshot from the PenEcho server?",
+      deleteSnapshotConfirmServer: "Delete this shared snapshot from the CoInk server?",
       canvasHintWidgetAdded: "Use Pen to mark changes near a widget, then tap the AI Refine button that appears.",
       canvasHintWidgetAddedAlt: "In Pen, notes anywhere in this view can reveal AI Refine on the target widget.",
       canvasHintRefineInPlace: "In Pen, add an instruction, then tap AI Refine on the target widget.",
@@ -624,7 +624,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       observing: "Observing...",
       aiPreparingCanvas: "Preparing canvas context...",
       aiSendingRequest: "Sending request...",
-      aiRequestReceived: "Request received by PenEcho",
+      aiRequestReceived: "Request received by CoInk",
       aiPreparingImage: "Preparing model input...",
       aiConnecting: "Connecting to the model...",
       aiWaitingResponse: "Waiting for the model...",
@@ -632,7 +632,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       aiValidatingResponse: "Checking model response...",
       aiRetrying: "Correcting response · attempt {attempt}",
       aiImageFallback: "Retrying with a compatible image · attempt {attempt}",
-      aiStillWaiting: "The model is taking longer than usual · PenEcho timeout {seconds}s",
+      aiStillWaiting: "The model is taking longer than usual · CoInk timeout {seconds}s",
       aiCancelled: "AI request cancelled",
       aiCancelledForInput: "AI request cancelled because new input started",
       deferred: "New ink found; this AI result was deferred",
@@ -678,7 +678,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       comingSoon: "Coming soon",
       refreshPlugins: "Refresh local plugins",
       serverPluginsComingTitle: "Server plugin marketplace is coming",
-      serverPluginsComingDescription: "Published plugins, free or points-priced downloads, server selection, trust details, and updates will appear here after the PenEcho website launches.",
+      serverPluginsComingDescription: "Published plugins, free or points-priced downloads, server selection, trust details, and updates will appear here after the CoInk website launches.",
       pluginBuiltIn: "Built in",
       pluginLocal: "Local Markdown",
       pluginPersonalSection: "Your plugins",
@@ -865,11 +865,11 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   }
   function authenticatedApiHeaders(headers = {}) {
     return configuredAccessSession
-      ? { ...headers, "X-PenEcho-Client":AI_CLIENT_ID, "X-PenEcho-Session":configuredAccessSession }
-      : { ...headers, "X-PenEcho-Client":AI_CLIENT_ID };
+      ? { ...headers, "X-CoInk-Client":AI_CLIENT_ID, "X-CoInk-Session":configuredAccessSession }
+      : { ...headers, "X-CoInk-Client":AI_CLIENT_ID };
   }
   function aiRequestHeaders(headers = {}) {
-    return { ...authenticatedApiHeaders(headers), "X-PenEcho-Connection":selectedAiConnectionId() };
+    return { ...authenticatedApiHeaders(headers), "X-CoInk-Connection":selectedAiConnectionId() };
   }
   const tiles = new Map(),
     state = {
