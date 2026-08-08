@@ -35,11 +35,11 @@
     return selectedServerProjectId === SERVER_ALL_PROJECTS_ID ? SERVER_DEFAULT_PROJECT_ID : selectedServerProjectId;
   }
   function snapshotLocationLabel(location = state.snapshotLocation) {
-    return t(location === "server" ? "storagePenEchoServer" : "storageThisDevice");
+    return t(location === "server" ? "storageCoInkServer" : "storageThisDevice");
   }
   function updateSnapshotLocationUi() {
     const location = SNAPSHOT_LOCATIONS.has(state.snapshotLocation) ? state.snapshotLocation : "device",
-      descriptionKey = location === "server" ? "storagePenEchoServerDescription" : "storageThisDeviceDescription";
+      descriptionKey = location === "server" ? "storageCoInkServerDescription" : "storageThisDeviceDescription";
     document.querySelectorAll('input[name="historyStorageLocation"], input[name="newCanvasStorageLocation"]').forEach((input) => {
       input.checked = input.value === location;
     });
@@ -210,14 +210,14 @@
     try {
       return await canvasBlob(snapshotPreview(), "image/webp", .78);
     } catch (error) {
-      console.warn("PenEcho snapshot thumbnail failed; saving with a fallback thumbnail:", error);
+      console.warn("CoInk snapshot thumbnail failed; saving with a fallback thumbnail:", error);
       return dataUrlBlob("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
     }
   }
   async function snapshotApiResponse(response) {
     let body = null;
     try { body = await response.json(); } catch {}
-    if (!response.ok) throw Error(body?.error || `PenEcho server returned HTTP ${response.status}`);
+    if (!response.ok) throw Error(body?.error || `CoInk server returned HTTP ${response.status}`);
     return body;
   }
   async function serverSnapshotItems() {
@@ -602,10 +602,10 @@
       }),
       body = await snapshotApiResponse(response),
       stored = body?.canvas;
-    if (!stored) throw Error("PenEcho server returned an invalid canvas");
+    if (!stored) throw Error("CoInk server returned an invalid canvas");
     const storedVersion = stored.version ?? stored.bundleVersion ?? 1;
     if (storedVersion === 2) {
-      if (stored.bundleVersion !== 2 || stored.mode !== "snapshot" || stored.formatVersion !== 1 || stored.manifest?.format !== "penecho-raster-tiles" || stored.manifest?.formatVersion !== 1 || !Array.isArray(stored.assets)) throw Error("PenEcho server returned an invalid canvas bundle");
+      if (stored.bundleVersion !== 2 || stored.mode !== "snapshot" || stored.formatVersion !== 1 || stored.manifest?.format !== "penecho-raster-tiles" || stored.manifest?.formatVersion !== 1 || !Array.isArray(stored.assets)) throw Error("CoInk server returned an invalid canvas bundle");
       const previewAsset = stored.assets.find((asset) => asset.kind === "preview"),
         tileAssets = stored.assets.filter((asset) => asset.kind === "tile"),
         imageAssets = stored.assets.filter((asset) => asset.kind === "resource" && asset.metadata?.resourceType === "image"),
@@ -640,7 +640,7 @@
         tileEntries:tileAssets.map((asset) => ({ k:asset.metadata?.tileKey, blob:snapshotBundleAssetBlob(asset) })),
       };
     }
-    if (!Array.isArray(stored.tiles) || !Array.isArray(stored.images)) throw Error("PenEcho server returned an invalid canvas");
+    if (!Array.isArray(stored.tiles) || !Array.isArray(stored.images)) throw Error("CoInk server returned an invalid canvas");
     return {
       item:{
         ...stored,
