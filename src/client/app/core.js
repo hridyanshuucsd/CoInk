@@ -634,6 +634,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       aiSendingRequest: "Sending request...",
       aiRequestReceived: "Request received by CoInk",
       aiPreparingImage: "Preparing model input...",
+      aiGeneratingImage: "Generating image...",
       aiConnecting: "Connecting to the model...",
       aiWaitingResponse: "Waiting for the model...",
       aiReceivingResponse: "Receiving model response...",
