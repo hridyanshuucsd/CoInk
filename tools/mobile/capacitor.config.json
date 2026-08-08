@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.hridyanshuucsd.coink",
+  "appName": "CoInk",
+  "webDir": "web",
+  "server": {
+    "allowNavigation": ["*"],
+    "cleartext": true
+  }
+}
