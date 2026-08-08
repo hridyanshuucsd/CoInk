@@ -2828,6 +2828,32 @@ test("static page keeps strict styles while allowing the pinned MathJax CDN", ()
   assert.doesNotMatch(server, /activeCliRequests|pendingCli|cliBusyError|MAX_CONCURRENCY|X-CoInk-Replaces/);
 });
 
+test("same-origin symbolic math API verifies exact algebra without a model call", async () => {
+  const { child, origin } = await startServer(serverEnv({ PENECHO_TEST_OPEN_ACCESS:"1" }));
+  try {
+    const verified = await fetch(`${origin}/api/math/verify`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", Origin:origin },
+      body:JSON.stringify({ from:"x + 1 = 3", to:"2x + 2 = 6" }),
+    });
+    assert.equal(verified.status, 200);
+    assert.deepEqual(await verified.json(), {
+      valid:true,
+      relation:"equivalent",
+      from:"-2:1 + 1:x^1",
+      to:"-4:1 + 2:x^1",
+    });
+    const crossOrigin = await fetch(`${origin}/api/math/verify`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", Origin:"https://attacker.example" },
+      body:JSON.stringify({ statement:"1 + 1 = 2" }),
+    });
+    assert.equal(crossOrigin.status, 403);
+  } finally {
+    await stopServer(child);
+  }
+});
+
 test("API mode uses one configured key without probes or fallback credentials", () => {
   const server=fs.readFileSync(path.join(ROOT,"src","server","main.js"),"utf8"),cli=fs.readFileSync(path.join(ROOT,"src","cli","main.js"),"utf8"),configure=fs.readFileSync(path.join(ROOT,"src","cli","configure-ui.js"),"utf8");
   for(const source of [server,cli,configure])assert.doesNotMatch(source,/OPENAI_PRO_API_KEY/);
