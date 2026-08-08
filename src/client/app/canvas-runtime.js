@@ -1336,7 +1336,7 @@
     clearTimeout(pending.timer);
     if (message.type === "penecho-widget-snapshot-error" || typeof message.dataUrl !== "string" || !message.dataUrl.startsWith("data:image/png;base64,")
       || !Number.isFinite(message.width) || message.width <= 0 || !Number.isFinite(message.height) || message.height <= 0) {
-      if (message.type === "penecho-widget-snapshot-error") console.warn("PenEcho widget snapshot failed:", String(message.error || "unknown error").slice(0, 300));
+      if (message.type === "penecho-widget-snapshot-error") console.warn("CoInk widget snapshot failed:", String(message.error || "unknown error").slice(0, 300));
       pending.reject(Error(t("widgetExportFailed")));
       return;
     }
