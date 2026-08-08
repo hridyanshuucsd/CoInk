@@ -78,7 +78,7 @@
     const match = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n([\s\S]*)$/.exec(markdown);
     if (!match) throw Error("Plugin document needs YAML frontmatter");
     const metadata = frontmatter(match[1]), body = match[2].trim();
-    if (metadata["penecho-plugin"] !== 1) throw Error("Unsupported PenEcho plugin version");
+    if (metadata["penecho-plugin"] !== 1) throw Error("Unsupported CoInk plugin version");
     if (!PLUGIN_ID.test(metadata.id || "") || metadata.id.length > 64) throw Error("Plugin id is invalid");
     if (typeof metadata.name !== "string" || !metadata.name.trim() || metadata.name.length > 80) throw Error("Plugin name is invalid");
     const nameZh = optionalText(metadata, "name-zh", 80),

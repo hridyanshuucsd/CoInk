@@ -30,7 +30,7 @@ Return one `html_widget` and no prose, with inline HTML/CSS/JS, `pluginId:"image
 
 Both APIs need no key and allow browser CORS. Use `URLSearchParams` and `credentials:"omit"`.
 
-- Primary: `https://commons.wikimedia.org/w/api.php` with `action=query`, `format=json`, `origin=*`, `generator=search`, `gsrsearch=<subject filetype:bitmap>`, `gsrnamespace=6`, `gsrlimit=<count>`, `prop=imageinfo`, `iiprop=url|mime|extmetadata`, `iiurlwidth=1200`. Add `headers:{"Api-User-Agent":"PenEcho-ImageSearch/1.0"}`. Sort pages by `index`; read `title`, `thumburl`, `url`, `descriptionurl`, `mime`, and `extmetadata` from `imageinfo[0]`.
+- Primary: `https://commons.wikimedia.org/w/api.php` with `action=query`, `format=json`, `origin=*`, `generator=search`, `gsrsearch=<subject filetype:bitmap>`, `gsrnamespace=6`, `gsrlimit=<count>`, `prop=imageinfo`, `iiprop=url|mime|extmetadata`, `iiurlwidth=1200`. Add `headers:{"Api-User-Agent":"CoInk-ImageSearch/1.0"}`. Sort pages by `index`; read `title`, `thumburl`, `url`, `descriptionurl`, `mime`, and `extmetadata` from `imageinfo[0]`.
 - Fallback: `https://api.openverse.org/v1/images/` with `q=<subject>`, `page_size=<count>`, `mature=false`. Read `title`, `creator`, `license`, `provider`, `foreign_landing_url`, and `thumbnail`. Accept `thumbnail` only from exact origin `https://api.openverse.org`; do not load raw `url`, whose origin is unpredictable.
 
 ## Fallback
