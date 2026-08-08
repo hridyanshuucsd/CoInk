@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const {
   IMAGE_GENERATION_URL,
@@ -53,4 +55,13 @@ test("image generation validates and returns base64 PNG data", async () => {
 test("image generation rejects invalid prompts before making a request", async () => {
   await assert.rejects(generateImage({ prompt:"", width:1000, height:1000 }, { available:true }), /prompt/);
   await assert.rejects(generateImage({ prompt:"valid", width:12, height:1000 }, { available:true }), /dimensions/);
+});
+
+test("generated images use the authenticated draft-and-confirm canvas path", () => {
+  const client = fs.readFileSync(path.join(__dirname, "..", "src", "client", "app", "ai-runtime.js"), "utf8");
+  const server = fs.readFileSync(path.join(__dirname, "..", "src", "server", "main.js"), "utf8");
+  assert.match(client, /c\.tool === "generate_image"[\s\S]*?generatedImageSlots--/);
+  assert.match(client, /fetch\("\/api\/images\/generate", \{[\s\S]*?credentials:"same-origin"[\s\S]*?headers:aiRequestHeaders/);
+  assert.match(client, /generatedImageDraft\(c\)[\s\S]*?startPending/);
+  assert.match(server, /url\.pathname === "\/api\/images\/generate"[\s\S]*?browserRequestError\(req\)[\s\S]*?imageGenerationConfiguration/);
 });
