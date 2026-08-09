@@ -554,7 +554,7 @@ test("plugin manager is a centered dynamic catalog with General HTML and bundled
   assert.doesNotMatch(handleConnectionAction, /updateConnection\("activate"/);
   assert.match(app, /fetch\("\/api\/plugins\/improve"[\s\S]*?headers:aiRequestHeaders/);
   assert.match(app, /fetch\("\/api\/ai\/command"[\s\S]*?headers:\s*aiRequestHeaders/);
-  assert.match(functionSource(app, "validate"), /acceptedTools = \["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"\]/);
+  assert.match(functionSource(app, "validate"), /acceptedTools = \["write_text", "handwrite_text", "math_work", "draw_formula", "plot_function", "generate_image", "draw", "erase"\]/);
   assert.doesNotMatch(functionSource(app, "validate"), /animate_scene/);
   assert.match(functionSource(app, "renderPluginOptions"), /localizedManifestValue[\s\S]*?pluginPromptEstimate[\s\S]*?copy\.append\(titleRow, help, meta\)/);
   assert.match(functionSource(app, "renderPluginOptions"), /plugin\.id === "general" \? t\("pluginPublicHttps"\)/);
@@ -661,8 +661,8 @@ test("simple native draw is loaded and rendered without enabling legacy animatio
     prepare = functionSource(app, "preparePendingItem");
   assert.match(html, /<script src="draw\.js"><\/script>[\s\S]*?<script src="app\.js"><\/script>/);
   assert.match(app, /const DRAW = window\.PENECHO_DRAW/);
-  assert.match(validate, /acceptedTools = \["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"\]/);
-  assert.match(validate, /c\.tool === "draw"[\s\S]*?DRAW\?\.normalize\(c, SIZE\)/);
+  assert.match(validate, /acceptedTools = \["write_text", "handwrite_text", "math_work", "draw_formula", "plot_function", "generate_image", "draw", "erase"\]/);
+  assert.match(validate, /c\.tool === "draw"[\s\S]*?DRAW\?\.normalize\(c, \{ maxExtent:SIZE, coordinateLimit:WORLD_COORDINATE_LIMIT \}\)/);
   assert.match(prepare, /c\.tool === "draw"[\s\S]*?DRAW\.render\(c, offscreen, c\.color\)/);
   assert.doesNotMatch(validate, /animate_scene/);
 });
@@ -1709,8 +1709,8 @@ test("text tool toggles a real MD+TeX preview and confirms the unchanged source"
   assert.match(confirm, /return await commitPromise/);
   assert.match(confirm, /proposedFontSize = editor\.fontCss \/ Math\.max\(0\.03, state\.scale\)/);
   assert.match(confirm, /fittedTextBoxContent\(text, fontSize, color, maxWidth\)/);
-  assert.match(confirm, /Math\.min\(SIZE - width, x\)/);
-  assert.match(confirm, /Math\.min\(SIZE - height, y\)/);
+  assert.match(confirm, /x = worldCoordinate\(x, width\)/);
+  assert.match(confirm, /y = worldCoordinate\(y, height\)/);
   assert.match(confirm, /state\.textBoxes\.splice\(existingIndex, 1, item\)[\s\S]*?state\.textBoxes\.push\(item\)/);
   assert.doesNotMatch(confirm, /blitSized\(|retainSharpOverlay\(/);
   assert.match(app, /function editTextBox\(item\)/);
@@ -2069,7 +2069,7 @@ test("AI text and formula drafts expose copy and axis-resize controls", () => {
   const app = read("public/app.js"),
     css = read("public/style.css"),
     zh = read("public/locales/zh.js"),
-    points = vm.runInNewContext(`(${functionSource(app, "draftActionPoints")})`, { SIZE: 20000 }),
+    points = vm.runInNewContext(`(${functionSource(app, "draftActionPoints")})`, { worldCoordinate:value => value }),
     copyTextForCommand = vm.runInNewContext(`(${functionSource(app, "copyTextForCommand")})`),
     draw = functionSource(app, "drawPending"),
     drawBatch = functionSource(app, "drawPendingBatch"),
@@ -2089,8 +2089,8 @@ test("AI text and formula drafts expose copy and axis-resize controls", () => {
   assert.deepEqual(Object.keys(points(box, 14, false)).sort(), ["item-accept", "item-cancel"]);
   assert.deepEqual(Object.keys(points(box, 14, true)).sort(), ["item-accept", "item-cancel", "item-copy"]);
   assert.equal(points(box, 14, true, true).copy.x, box.x + box.w / 2);
-  assert.ok(edge.copy.y > 0 && edge.copy.y >= radius);
-  assert.ok(Object.values(edge).every((point) => point.x >= radius && point.x <= 20000 - radius));
+  assert.ok(edge.copy.y < 0, "draft controls may cross the former page origin on an edgeless canvas");
+  assert.ok(Object.values(edge).every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)));
   assert.match(draw, /if \(p\.textCommand\) drawTextDraftSurface\(ctx, b\)/);
   assert.doesNotMatch(draw, /drawDraftActions/);
   assert.match(draw, /b\.x \+ b\.w \+ s \* 0\.08/);
@@ -2299,7 +2299,7 @@ test("batch drafts paint every body before selected feedback", () => {
 
 test("batch draft action controls provide a 44px touch target", () => {
   const app = read("public/app.js"),
-    points = vm.runInNewContext(`(${functionSource(app, "draftActionPoints")})`, { SIZE: 20000 }),
+    points = vm.runInNewContext(`(${functionSource(app, "draftActionPoints")})`, { worldCoordinate:value => value }),
     hit = vm.runInNewContext(`(${functionSource(app, "pendingHit")})`, {
       clientPoint: (event) => event,
       draftActionPoints: points,
