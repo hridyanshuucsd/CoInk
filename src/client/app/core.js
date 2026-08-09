@@ -1,6 +1,7 @@
 "use strict";
 (() => {
   const SIZE = 20000,
+    WORLD_COORDINATE_LIMIT = 10000000,
     TILE = 512,
     DIRTY_MASK_SCALE = 0.25,
     INITIAL_VIEW_ZOOM = 1.5,
@@ -1109,6 +1110,9 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   };
   const setStatusKey = (key) => setStatus(t(key), key);
   const t = (key) => I18N[state.language][key] || I18N.zh[key] || key;
+  function worldCoordinate(value, extent = 0) {
+    return Math.max(-WORLD_COORDINATE_LIMIT, Math.min(WORLD_COORDINATE_LIMIT - Math.max(0, extent), Number(value) || 0));
+  }
   function renderCanvasHint(restart = false) {
     if (!canvasHint || !state.canvasHintKey) return;
     canvasHint.textContent = `Hint: ${t(state.canvasHintKey)}`;
@@ -1154,7 +1158,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         if (!intersection(tileBox, visible)) continue;
         let ink = state.inkBounds.get(k);
         if (ink === undefined) {
-          ink = c ? inkBox(c, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE)) : null;
+          ink = c ? inkBox(c, TILE, TILE) : null;
           state.inkBounds.set(k, ink);
         }
         if (ink) rects.push({ x: tileBox.x + ink.x, y: tileBox.y + ink.y, w: ink.w, h: ink.h });

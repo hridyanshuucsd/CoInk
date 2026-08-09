@@ -251,7 +251,7 @@
   function snapshotPreview() {
     const preview = offscreen(640, 426),
       q = preview.getContext("2d"),
-      bounds = unionLocalBounds(unionLocalBounds(unionLocalBounds(unionLocalBounds(visibleInkBounds({ x:0, y:0, w:SIZE, h:SIZE }), imageBounds()), textBoxBounds()), animationBounds()), widgetBounds());
+      bounds = exportInkBounds();
     q.fillStyle = state.paint.paper;
     q.fillRect(0, 0, preview.width, preview.height);
     if (!bounds) return preview;
@@ -284,7 +284,7 @@
     let bounds = null;
     for (const [tileKey, tileCanvas] of tiles) {
       const [tx, ty] = tileKey.split(",").map(Number),
-        ink = inkBox(tileCanvas, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE));
+        ink = inkBox(tileCanvas, TILE, TILE);
       if (!ink) continue;
       state.inkBounds.set(tileKey, ink);
       bounds = unionLocalBounds(bounds, { x: tx * TILE + ink.x, y: ty * TILE + ink.y, w: ink.w, h: ink.h });
@@ -1148,10 +1148,10 @@
       h = Math.abs(a.y - b.y) + pad * 2,
       changedBox = { x, y, w, h };
     invalidateSharpOverlays(changedBox);
-    const x0 = Math.max(0, Math.floor(x / TILE)),
-      y0 = Math.max(0, Math.floor(y / TILE)),
-      x1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.floor((x + w) / TILE)),
-      y1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.floor((y + h) / TILE));
+    const x0 = Math.floor(x / TILE),
+      y0 = Math.floor(y / TILE),
+      x1 = Math.floor((x + w) / TILE),
+      y1 = Math.floor((y + h) / TILE);
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
         const expanded = { x: tx * TILE - pad, y: ty * TILE - pad, w: TILE + pad * 2, h: TILE + pad * 2 };
@@ -1333,7 +1333,7 @@
       let current = tiles.get(k);
       if (current && state.inkBounds.get(k) === undefined) {
         const [tx, ty] = k.split(",").map(Number),
-          ink = inkBox(current, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE));
+          ink = inkBox(current, TILE, TILE);
         if (ink) state.inkBounds.set(k, ink);
         else {
           tiles.delete(k);

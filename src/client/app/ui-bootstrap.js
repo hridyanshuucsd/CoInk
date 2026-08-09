@@ -553,8 +553,8 @@
       height = Math.min(TEXT_EDITOR_DEFAULT_HEIGHT, Math.max(TEXT_EDITOR_MIN_HEIGHT, rect.height - 24)),
       center = clientPoint({ clientX:rect.left + rect.width / 2, clientY:rect.top + rect.height / 2 });
     return {
-      x:Math.max(0, Math.min(SIZE - width / scale, center.x - width / scale / 2)),
-      y:Math.max(0, Math.min(SIZE - height / scale, center.y - height / scale / 2)),
+      x:worldCoordinate(center.x - width / scale / 2, width / scale),
+      y:worldCoordinate(center.y - height / scale / 2, height / scale),
     };
   }
   function addClipboardText(text) {

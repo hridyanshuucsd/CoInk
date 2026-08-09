@@ -17,7 +17,7 @@
       const source = packed.sourceRect;
       return {
         image:packed.atlasImage,
-        note:`${reason}. The attached image maps to global logical rectangle x=${Math.round(source.x)}, y=${Math.round(source.y)}, width=${Math.round(source.w)}, height=${Math.round(source.h)} on a ${SIZE} by ${SIZE} canvas. Use those global coordinates for canvas_commands.`,
+        note:`${reason}. The attached image maps to global logical rectangle x=${Math.round(source.x)}, y=${Math.round(source.y)}, width=${Math.round(source.w)}, height=${Math.round(source.h)} on an edgeless canvas. Coordinates may be positive or negative. Use those global coordinates for canvas_commands.`,
       };
     } catch (error) {
       debug("voice-context-error", { error:String(error?.message || error).slice(0, 240) });

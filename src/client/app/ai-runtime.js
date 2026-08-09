@@ -487,11 +487,11 @@
   }
   function viewportRect() {
     const r = view.getBoundingClientRect(),
-      x = Math.max(0, -state.panX / state.scale),
-      y = Math.max(0, -state.panY / state.scale),
-      right = Math.min(SIZE, (r.width - state.panX) / state.scale),
-      bottom = Math.min(SIZE, (r.height - state.panY) / state.scale);
-    return right > x && bottom > y ? { x, y, w: right - x, h: bottom - y } : null;
+      x = -state.panX / state.scale,
+      y = -state.panY / state.scale,
+      w = r.width / state.scale,
+      h = r.height / state.scale;
+    return w > 0 && h > 0 ? { x, y, w, h } : null;
   }
   function visibleInkBounds(visible) {
     let bounds = null;
@@ -503,7 +503,7 @@
       let ink = state.inkBounds.get(k);
       if (ink === undefined) {
         const c = tiles.get(k);
-        ink = c ? inkBox(c, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE)) : null;
+        ink = c ? inkBox(c, TILE, TILE) : null;
         state.inkBounds.set(k, ink);
       }
       if (!ink) continue;
@@ -783,7 +783,7 @@
     const epsilon = 0.001;
     return inner.x >= outer.x - epsilon && inner.y >= outer.y - epsilon && inner.x + inner.w <= outer.x + outer.w + epsilon && inner.y + inner.h <= outer.y + outer.h + epsilon;
   }
-  const n = (v, min = 0, max = SIZE) => Number.isFinite(v) && v >= min && v <= max;
+  const n = (v, min = -WORLD_COORDINATE_LIMIT, max = WORLD_COORDINATE_LIMIT) => Number.isFinite(v) && v >= min && v <= max;
   function matchedFontSize(value) {
     const screenReadable = 42 / Math.max(0.03, state.scale);
     return Math.max(24, Math.min(650, Math.max(+value || 180, screenReadable)));
@@ -810,8 +810,8 @@
     const next = { ...command },
       preferredY = Math.max(capture.y, Math.min(capture.y + capture.h - Math.min(height, capture.h), latestBox.y + latestBox.h + padding));
     next.x = Math.max(capture.x, Math.min(capture.x + capture.w - Math.min(width, capture.w), latestBox.x));
-    next.y = Math.max(0, Math.min(SIZE - height, preferredY));
-    if (textTool) next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE - next.x));
+    next.y = worldCoordinate(preferredY, height);
+    if (textTool) next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE));
     return [next];
   }
   function widgetGeometryForViewport(visibleRect) {
@@ -844,8 +844,8 @@
     h = Math.max(200, h);
     w = Math.min(w, SIZE);
     h = Math.min(h, SIZE);
-    x = Math.max(0, Math.min(SIZE - w, x));
-    y = Math.max(0, Math.min(SIZE - h, y));
+    x = worldCoordinate(x, w);
+    y = worldCoordinate(y, h);
     return w >= 300 && h >= 200 ? { x, y, w, h } : null;
   }
   function validWidgetRefreshSeconds(value) {
@@ -870,21 +870,19 @@
           if (!n(c.x) || !n(c.y) || typeof c.text !== "string" || !Number.isFinite(c.maxWidth)) return null;
           c.text = c.text.slice(0, AI_TEXT_MAX_LENGTH);
           c.fontSize = matchedTextFontSize(c.fontSize, c.text);
-          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
+          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE, c.maxWidth));
           c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.35));
           c.color = aiColor;
           if (c.maxWidth < c.fontSize) return null;
-          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
         }
         if (c.tool === "handwrite_text") {
           if (!n(c.x) || !n(c.y) || typeof c.text !== "string" || !Number.isFinite(c.maxWidth)) return null;
           c.text = c.text.slice(0, AI_TEXT_MAX_LENGTH);
           c.fontSize = matchedFontSize(c.fontSize);
-          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
+          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE, c.maxWidth));
           c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.3));
           c.color = aiColor;
           if (c.maxWidth < c.fontSize) return null;
-          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
         }
         if (c.tool === "math_work") {
           if (!n(c.x) || !n(c.y) || !Array.isArray(c.steps) || !c.steps.length || c.steps.length > 8) return null;
@@ -905,11 +903,10 @@
           c.latex = c.latex.slice(0, 500);
           c.fontSize = matchedFontSize(c.fontSize);
           c.color = aiColor;
-          const estimatedWidth = Math.min(5000, Math.max(c.fontSize, c.latex.length * c.fontSize * 0.72));
-          c.x = Math.min(c.x, Math.max(0, SIZE - estimatedWidth));
-          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * 1.8));
+          c.x = worldCoordinate(c.x, Math.min(5000, Math.max(c.fontSize, c.latex.length * c.fontSize * 0.72)));
+          c.y = worldCoordinate(c.y, c.fontSize * 1.8);
         }
-        if (c.tool === "plot_function" && (!n(c.x) || !n(c.y) || !n(c.w, 240, 6000) || !n(c.h, 180, 6000) || c.w * c.h > 8000000 || Math.max(c.w / c.h, c.h / c.w) > 6 || 12000000 < plotPixels + c.w * c.h || c.x + c.w > SIZE || c.y + c.h > SIZE || typeof c.expression !== "string" || c.expression.length > 180)) return null;
+        if (c.tool === "plot_function" && (!n(c.x) || !n(c.y) || !n(c.w, 240, 6000) || !n(c.h, 180, 6000) || c.w * c.h > 8000000 || Math.max(c.w / c.h, c.h / c.w) > 6 || 12000000 < plotPixels + c.w * c.h || typeof c.expression !== "string" || c.expression.length > 180)) return null;
         if (c.tool === "plot_function") {
           c.expression = normalizePlotExpression(c.expression);
           try {
@@ -921,7 +918,7 @@
           plotPixels += c.w * c.h;
         }
         if (c.tool === "generate_image") {
-          if (generatedImageSlots <= 0 || !n(c.x) || !n(c.y) || !n(c.w, 256, 6000) || !n(c.h, 256, 6000) || c.w * c.h > 12000000 || Math.max(c.w / c.h, c.h / c.w) > 3 || c.x + c.w > SIZE || c.y + c.h > SIZE || typeof c.prompt !== "string" || !c.prompt.trim() || c.prompt.length > 2000) return null;
+          if (generatedImageSlots <= 0 || !n(c.x) || !n(c.y) || !n(c.w, 256, 6000) || !n(c.h, 256, 6000) || c.w * c.h > 12000000 || Math.max(c.w / c.h, c.h / c.w) > 3 || typeof c.prompt !== "string" || !c.prompt.trim() || c.prompt.length > 2000) return null;
           c.prompt = c.prompt.trim();
           generatedImageSlots--;
         }
@@ -1066,8 +1063,8 @@
         }
         if (image) {
           checkAI(revision, run);
-          x = Math.max(0, Math.min(x, SIZE - Math.min(image.logicalWidth || image.width, SIZE)));
-          y = Math.max(0, Math.min(y, SIZE - Math.min(image.logicalHeight || image.height, SIZE)));
+          x = worldCoordinate(x, image.logicalWidth || image.width);
+          y = worldCoordinate(y, image.logicalHeight || image.height);
           const accepted = await startPending(image, x, y, revision, meta, pendingCommand);
           if (accepted === AI_CANCELLED) throw Error(AI_CANCELLED);
           if (accepted === AI_SUPERSEDED) throw Error(AI_SUPERSEDED);
@@ -1118,8 +1115,8 @@
       copyText: copyTextForCommand(c),
       animationScene: c.tool === "animate_scene" ? pendingCommand : null,
       animationPlayback: c.tool === "animate_scene" ? createAnimationPlayback() : null,
-      x: Math.max(0, Math.min(x, SIZE - Math.min(logicalWidth, SIZE))),
-      y: Math.max(0, Math.min(y, SIZE - Math.min(logicalHeight, SIZE))),
+      x: worldCoordinate(x, logicalWidth),
+      y: worldCoordinate(y, logicalHeight),
       layoutWidth: logicalWidth,
       layoutHeight: logicalHeight,
     };
@@ -1610,10 +1607,10 @@
     blitSized(im, x, y, im.width * scaleX, im.height * scaleY);
   }
   function blitSized(im, x, y, w, h) {
-    const x0 = Math.max(0, Math.floor(x / TILE)),
-      y0 = Math.max(0, Math.floor(y / TILE)),
-      x1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((x + w) / TILE) - 1),
-      y1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((y + h) / TILE) - 1);
+    const x0 = Math.floor(x / TILE),
+      y0 = Math.floor(y / TILE),
+      x1 = Math.ceil((x + w) / TILE) - 1,
+      y1 = Math.ceil((y + h) / TILE) - 1;
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
         recordBefore(tx, ty);
@@ -1837,9 +1834,9 @@
   function draftActionPoints(box, s, includeCopy = false, single = false) {
     const prefix = single ? "" : "item-",
       radius = s * 0.54,
-      clampX = (value) => Math.max(radius, Math.min(SIZE - radius, value)),
+      clampX = (value) => worldCoordinate(value),
       aboveY = box.y - s * 0.74,
-      actionY = aboveY - radius >= 0 ? aboveY : Math.min(SIZE - radius, box.y + radius + s * 0.18),
+      actionY = aboveY,
       actions = {
         [prefix + "cancel"]: { x: clampX(box.x - s * 0.62), y: actionY },
         [prefix + "accept"]: { x: clampX(box.x + box.w + s * 0.62), y: actionY },
@@ -1903,9 +1900,9 @@
     context.font = `700 ${fontSize}px system-ui, sans-serif`;
     const width = context.measureText(label).width + paddingX * 2,
       height = fontSize + paddingY * 2,
-      x = Math.max(0, Math.min(SIZE - width, box.x + box.w / 2 - width / 2)),
+      x = worldCoordinate(box.x + box.w / 2 - width / 2, width),
       above = box.y - s * 1.15 - height,
-      y = above >= 0 ? above : Math.min(SIZE - height, box.y + s * 0.95);
+      y = above;
     context.fillStyle = "#111827e8";
     context.fillRect(x, y, width, height);
     context.fillStyle = "#fff";
@@ -2478,8 +2475,8 @@
       if (g.hit === "batch-move") {
         if (g.armed) {
           const box = g.batchStartBounds,
-            dx = Math.max(-box.x, Math.min(SIZE - box.x - box.w, q.x - g.startX)),
-            dy = Math.max(-box.y, Math.min(SIZE - box.y - box.h, q.y - g.startY));
+            dx = worldCoordinate(box.x + q.x - g.startX, box.w) - box.x,
+            dy = worldCoordinate(box.y + q.y - g.startY, box.h) - box.y;
           p.items.forEach((item, index) => {
             item.x = g.itemStarts[index].x + dx;
             item.y = g.itemStarts[index].y + dy;
@@ -2499,32 +2496,32 @@
         box = item ? pendingItemBounds(item) : null;
       if (!item || !box) return false;
       if (g.hit === "move" && g.armed) {
-        item.x = Math.max(0, Math.min(SIZE - box.w, item.x + q.x - g.last.x));
-        item.y = Math.max(0, Math.min(SIZE - box.h, item.y + q.y - g.last.y));
+        item.x = worldCoordinate(item.x + q.x - g.last.x, box.w);
+        item.y = worldCoordinate(item.y + q.y - g.last.y, box.h);
       } else if (g.hit === "resize" && g.armed) {
         const baseWidth = box.w / item.scaleX,
           baseHeight = box.h / item.scaleY,
           minimum = Math.max(40 / baseWidth, 40 / baseHeight),
-          maximum = Math.min((SIZE - item.x) / baseWidth, (SIZE - item.y) / baseHeight),
+          maximum = Math.min(SIZE / baseWidth, SIZE / baseHeight),
           next = Math.max(minimum, Math.min(maximum, Math.max((q.x - item.x) / baseWidth, (q.y - item.y) / baseHeight)));
         item.scaleX = item.scaleY = next;
       } else if (g.hit === "width" && g.armed) {
         if (item.textCommand) {
-          const layoutWidth=Math.max(item.textCommand.fontSize,Math.min((SIZE-item.x)/item.scaleX,(q.x-item.x)/item.scaleX));
+          const layoutWidth=Math.max(item.textCommand.fontSize,Math.min(SIZE/item.scaleX,(q.x-item.x)/item.scaleX));
           item.layoutWidth=layoutWidth;
           item.image=textImage(item.textCommand.text,item.textCommand.fontSize,item.textCommand.color,item.layoutWidth,item.textCommand.lineHeight);
           if(!item.heightLocked)item.layoutHeight=item.image.logicalHeight||item.image.height;
         } else {
           const baseWidth = box.w / item.scaleX;
-          item.scaleX = Math.max(40 / baseWidth, Math.min((SIZE - item.x) / baseWidth, (q.x - item.x) / baseWidth));
+          item.scaleX = Math.max(40 / baseWidth, Math.min(SIZE / baseWidth, (q.x - item.x) / baseWidth));
         }
       } else if (g.hit === "height" && g.armed) {
         if (item.textCommand) {
-          item.layoutHeight = Math.max(item.textCommand.fontSize * item.textCommand.lineHeight + 8, Math.min((SIZE - item.y) / item.scaleY, (q.y - item.y) / item.scaleY));
+          item.layoutHeight = Math.max(item.textCommand.fontSize * item.textCommand.lineHeight + 8, Math.min(SIZE / item.scaleY, (q.y - item.y) / item.scaleY));
           item.heightLocked = true;
         } else {
           const baseHeight = box.h / item.scaleY;
-          item.scaleY = Math.max(40 / baseHeight, Math.min((SIZE - item.y) / baseHeight, (q.y - item.y) / baseHeight));
+          item.scaleY = Math.max(40 / baseHeight, Math.min(SIZE / baseHeight, (q.y - item.y) / baseHeight));
         }
       }
       g.last = q;
@@ -2533,33 +2530,33 @@
     }
     if (g.hit === "move" && g.armed) {
       const b = draftBounds(p);
-      p.x = Math.max(0, Math.min(SIZE - b.w, p.x + q.x - g.last.x));
-      p.y = Math.max(0, Math.min(SIZE - b.h, p.y + q.y - g.last.y));
+      p.x = worldCoordinate(p.x + q.x - g.last.x, b.w);
+      p.y = worldCoordinate(p.y + q.y - g.last.y, b.h);
     } else if (g.hit === "resize" && g.armed) {
       const minimum = 40,
         baseWidth = p.textCommand ? p.layoutWidth : p.image.logicalWidth || p.image.width,
         baseHeight = p.textCommand ? p.layoutHeight : p.image.logicalHeight || p.image.height,
         ratio = Math.max(minimum / baseWidth, minimum / baseHeight),
-        maxScale = Math.max(ratio, Math.min((SIZE - p.x) / baseWidth, (SIZE - p.y) / baseHeight)),
+        maxScale = Math.max(ratio, Math.min(SIZE / baseWidth, SIZE / baseHeight)),
         next = Math.max(ratio, Math.min(maxScale, Math.max((q.x - p.x) / baseWidth, (q.y - p.y) / baseHeight)));
       p.scaleX = p.scaleY = next;
     } else if (g.hit === "width" && g.armed) {
       if (p.textCommand) {
-        const layoutWidth=Math.max(p.textCommand.fontSize,Math.min((SIZE-p.x)/p.scaleX,(q.x-p.x)/p.scaleX));
+        const layoutWidth=Math.max(p.textCommand.fontSize,Math.min(SIZE/p.scaleX,(q.x-p.x)/p.scaleX));
         p.layoutWidth=layoutWidth;
         p.image=textImage(p.textCommand.text,p.textCommand.fontSize,p.textCommand.color,p.layoutWidth,p.textCommand.lineHeight);
         if(!p.heightLocked)p.layoutHeight=p.image.logicalHeight||p.image.height;
       } else {
         const baseWidth = draftBounds(p).w / p.scaleX;
-        p.scaleX = Math.max(40 / baseWidth, Math.min((SIZE - p.x) / baseWidth, (q.x - p.x) / baseWidth));
+        p.scaleX = Math.max(40 / baseWidth, Math.min(SIZE / baseWidth, (q.x - p.x) / baseWidth));
       }
     } else if (g.hit === "height" && g.armed) {
       if (p.textCommand) {
-        p.layoutHeight = Math.max(p.textCommand.fontSize * p.textCommand.lineHeight + 8, Math.min((SIZE - p.y) / p.scaleY, (q.y - p.y) / p.scaleY));
+        p.layoutHeight = Math.max(p.textCommand.fontSize * p.textCommand.lineHeight + 8, Math.min(SIZE / p.scaleY, (q.y - p.y) / p.scaleY));
         p.heightLocked = true;
       } else {
         const baseHeight = draftBounds(p).h / p.scaleY;
-        p.scaleY = Math.max(40 / baseHeight, Math.min((SIZE - p.y) / baseHeight, (q.y - p.y) / baseHeight));
+        p.scaleY = Math.max(40 / baseHeight, Math.min(SIZE / baseHeight, (q.y - p.y) / baseHeight));
       }
     }
     g.last = q;
@@ -2626,10 +2623,10 @@
       ys = c.points.map((p) => p[1]),
       pad = c.size / 2;
     return {
-      x: Math.max(0, Math.min(...xs) - pad),
-      y: Math.max(0, Math.min(...ys) - pad),
-      w: Math.min(SIZE, Math.max(...xs) + pad) - Math.max(0, Math.min(...xs) - pad),
-      h: Math.min(SIZE, Math.max(...ys) + pad) - Math.max(0, Math.min(...ys) - pad),
+      x: Math.min(...xs) - pad,
+      y: Math.min(...ys) - pad,
+      w: Math.max(...xs) - Math.min(...xs) + pad * 2,
+      h: Math.max(...ys) - Math.min(...ys) + pad * 2,
     };
   }
   async function previewErase(c, revision) {
@@ -3027,17 +3024,17 @@
     if (gesture.hit === "resize") {
       const ratio = gesture.start.w / gesture.start.h,
         targetWidth = Math.max(80, Math.max(point.x - gesture.start.x, (point.y - gesture.start.y) * ratio)),
-        width = Math.min(SIZE - gesture.start.x, targetWidth),
-        height = Math.min(SIZE - gesture.start.y, width / ratio);
+        width = Math.min(SIZE, targetWidth),
+        height = Math.min(SIZE, width / ratio);
       animation.w = width;
       animation.h = height;
     } else if (gesture.hit === "width") {
-      animation.w = Math.max(80, Math.min(SIZE - gesture.start.x, point.x - gesture.start.x));
+      animation.w = Math.max(80, Math.min(SIZE, point.x - gesture.start.x));
     } else if (gesture.hit === "height") {
-      animation.h = Math.max(80, Math.min(SIZE - gesture.start.y, point.y - gesture.start.y));
+      animation.h = Math.max(80, Math.min(SIZE, point.y - gesture.start.y));
     } else {
-      animation.x = Math.max(0, Math.min(SIZE - animation.w, gesture.start.x + dx));
-      animation.y = Math.max(0, Math.min(SIZE - animation.h, gesture.start.y + dy));
+      animation.x = worldCoordinate(gesture.start.x + dx, animation.w);
+      animation.y = worldCoordinate(gesture.start.y + dy, animation.h);
     }
     gesture.changed ||= Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01;
     requestAnimationLayerRender();
