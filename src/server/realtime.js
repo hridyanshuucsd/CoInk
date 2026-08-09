@@ -5,6 +5,23 @@ const DEFAULT_REALTIME_VOICE = "marin";
 const REALTIME_CALL_URL = "https://api.openai.com/v1/realtime/calls";
 const MAX_SDP_BYTES = 256 * 1024;
 
+const WRITE_ON_CANVAS_TOOL = Object.freeze({
+  type:"function",
+  name:"write_on_canvas",
+  description:"Write a short handwritten note on the shared canvas. Call this whenever the student asks you to write, show, label, or work something out on the canvas. Text is required; placement is optional because CoInk can choose a safe visible location.",
+  parameters:{
+    type:"object",
+    properties:{
+      text:{ type:"string", description:"The exact short text to handwrite, usually 2-20 words." },
+      x:{ type:"number", description:"Optional global logical x coordinate from the latest canvas context." },
+      y:{ type:"number", description:"Optional global logical y coordinate from the latest canvas context." },
+      fontSize:{ type:"number", description:"Optional logical font size. Omit to use a readable default." },
+      maxWidth:{ type:"number", description:"Optional maximum logical line width. Omit to fit the visible canvas." },
+    },
+    required:["text"],
+  },
+});
+
 const CANVAS_COMMANDS_TOOL = Object.freeze({
   type:"function",
   name:"canvas_commands",
@@ -87,7 +104,7 @@ function realtimeSession(configuration) {
     output_modalities:["audio"],
     instructions:REALTIME_INSTRUCTIONS,
     max_output_tokens:2400,
-    tools:[CANVAS_COMMANDS_TOOL, VERIFY_MATH_TOOL],
+    tools:[WRITE_ON_CANVAS_TOOL, CANVAS_COMMANDS_TOOL, VERIFY_MATH_TOOL],
     tool_choice:"auto",
     audio:{
       input:{
@@ -129,6 +146,7 @@ module.exports = {
   REALTIME_CALL_URL,
   REALTIME_INSTRUCTIONS,
   VERIFY_MATH_TOOL,
+  WRITE_ON_CANVAS_TOOL,
   createRealtimeCall,
   realtimeConfiguration,
   realtimeSession,
