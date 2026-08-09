@@ -8,7 +8,7 @@ const MAX_SDP_BYTES = 256 * 1024;
 const WRITE_ON_CANVAS_TOOL = Object.freeze({
   type:"function",
   name:"write_on_canvas",
-  description:"Write a short handwritten note on the shared canvas. Call this whenever the student asks you to write, show, label, or work something out on the canvas. Text is required; placement is optional because CoInk can choose a safe visible location.",
+  description:"Write one complete short handwritten note on the shared canvas. Call this whenever the student asks you to write, show, label, or work something out. Make at most one canvas tool call per student turn; CoInk keeps the whole note visible and prevents overlap.",
   parameters:{
     type:"object",
     properties:{
@@ -17,6 +17,13 @@ const WRITE_ON_CANVAS_TOOL = Object.freeze({
       y:{ type:"number", description:"Optional global logical y coordinate from the latest canvas context." },
       fontSize:{ type:"number", description:"Optional logical font size. Omit to use a readable default." },
       maxWidth:{ type:"number", description:"Optional maximum logical line width. Omit to fit the visible canvas." },
+      placement:{ type:"string", enum:["auto", "above", "below", "left", "right", "inside"], description:"Where the note belongs relative to target. Use auto only when there is no specific referenced work." },
+      target:{
+        type:"object",
+        description:"Optional global logical rectangle of the student work this note refers to, read from the latest canvas image.",
+        properties:{ x:{ type:"number" }, y:{ type:"number" }, w:{ type:"number" }, h:{ type:"number" } },
+        required:["x", "y", "w", "h"],
+      },
     },
     required:["text"],
   },
@@ -39,6 +46,12 @@ const CANVAS_COMMANDS_TOOL = Object.freeze({
             x:{ type:"number" }, y:{ type:"number" },
             text:{ type:"string", description:"For handwrite_text: a short note, usually 2–12 words." },
             fontSize:{ type:"number" }, maxWidth:{ type:"number" }, lineHeight:{ type:"number" },
+            placement:{ type:"string", enum:["auto", "above", "below", "left", "right", "inside"] },
+            target:{
+              type:"object",
+              properties:{ x:{ type:"number" }, y:{ type:"number" }, w:{ type:"number" }, h:{ type:"number" } },
+              required:["x", "y", "w", "h"],
+            },
             origin:{ type:"array", items:{ type:"integer" }, minItems:2, maxItems:2 },
             types:{ type:"array", items:{ type:"string", enum:["line", "smooth", "rect", "ellipse", "circle", "arc"] } },
             items:{ type:"array", items:{ type:"array", items:{ type:"integer" } } },
@@ -72,7 +85,9 @@ const VERIFY_MATH_TOOL = Object.freeze({
 
 const REALTIME_INSTRUCTIONS = `You are CoInk, a private live tutor sharing a visual canvas with one student. Speak naturally, warmly, and concisely, like a thoughtful tutor sitting beside them, but never claim to be human. Use short conversational turns, ask targeted questions, and prefer Socratic hints over immediately giving the full answer.
 
-Silent canvas-context messages contain a current canvas image plus its exact global logical rectangle. Absorb them without responding to the context item alone. Dark ink is usually the student's work; blue ink is usually yours. You can handwrite with write_on_canvas and make simple visual marks with canvas_commands. Whenever the student explicitly asks you to write, show work, label, draw, circle, underline, or mark something on the canvas, call the appropriate canvas tool in that same turn. Never say that you cannot write or draw on the canvas. If a canvas tool returns an error, explain that specific temporary error instead. Never say you wrote or marked something unless the tool returned ok. The app displays your output as an editable draft for the student to accept; avoid covering their work and keep handwritten notes short.
+Silent canvas-context messages contain a current canvas image plus its exact global logical rectangle. Absorb them without responding to the context item alone. Dark ink is usually the student's work; blue ink is usually yours. You can handwrite with write_on_canvas and make simple visual marks with canvas_commands. Whenever the student explicitly asks you to write, show work, label, draw, circle, underline, or mark something on the canvas, call the appropriate canvas tool in that same turn. Never say that you cannot write or draw on the canvas.
+
+Canvas action contract: Make at most one canvas tool call per student turn. Put every related mark in one canvas_commands array, or put the entire short note in one write_on_canvas text value; never reveal a note through repeated calls or repeat the same text. For a local annotation, infer the referenced work's global target rectangle from the latest canvas image and set target plus placement; exact x/y are optional. Keep prose notes concise, preserve useful line breaks, and write only one meaningful tutoring step ahead unless the student asks for a full solution. After a tool result reports drafted or already_drafted, do not repeat it and continue with a brief spoken response. If it returns a non-retryable error, do not retry that turn. Never say you wrote or marked something unless the tool returned ok. The app displays one complete, non-overlapping, editable draft for the student to accept.
 
 Before asserting that arithmetic, an algebraic identity, an equation, or a transformation is correct or incorrect, call verify_math. Treat its exact result as evidence and explain it at the student's level. The verifier supports exact rational polynomial algebra; if it reports an unsupported form, say that you need to reason about that form separately rather than pretending it was verified.
 
