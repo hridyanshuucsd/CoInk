@@ -118,6 +118,9 @@ const AI_PROGRESS_HEARTBEAT_MS = process.env.NODE_ENV === "test" && /^\d+$/.test
 const PUBLIC_FETCH_MAX_REDIRECTS = 4;
 const PUBLIC_FETCH_MAX_CONCURRENT = 20;
 const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function boundedWorldCoordinate(value, extent = 0) {
+  return Math.max(-WORLD_COORDINATE_LIMIT,Math.min(WORLD_COORDINATE_LIMIT-Math.max(0,extent),Number(value)||0));
+}
 const CANVAS_SNAPSHOT_ID_PATTERN = /^\d{10,16}-[a-zA-Z0-9-]{8,64}$/;
 const CANVAS_PROJECT_ID_PATTERN = /^project-[a-zA-Z0-9-]{8,64}$/;
 const DEFAULT_CANVAS_PROJECT_ID = "uncategorized";
@@ -2278,8 +2281,8 @@ async function callModel(modelInput, atlasImage, retryInstruction="", effort, ex
 function responsePlacement(changedBox) {
   if (!changedBox) return null;
   const padding=Math.max(60,Math.min(180,changedBox.h*.08));
-  const right={x:Math.min(CANVAS_SIZE-200,changedBox.x+changedBox.w+padding),y:Math.max(0,changedBox.y+changedBox.h*.25)};
-  const below={x:Math.max(0,changedBox.x),y:Math.min(CANVAS_SIZE-200,changedBox.y+changedBox.h+padding)};
+  const right={x:boundedWorldCoordinate(changedBox.x+changedBox.w+padding,200),y:boundedWorldCoordinate(changedBox.y+changedBox.h*.25,200)};
+  const below={x:boundedWorldCoordinate(changedBox.x,200),y:boundedWorldCoordinate(changedBox.y+changedBox.h+padding,200)};
   return {right,below,instruction:"For an unfinished expression ending in =, append only the missing result at right.x/right.y. For longer prose use below.x/below.y. Do not rewrite the user's entire expression."};
 }
 const REINSPECTION_RETRY = "Perform a second independent inspection. Use focusInset as the primary transcription view when present, especially for Chinese handwriting, then cross-check latestInput.imageRect. Inspect any box/circle-selected content and arrow chain it visually references outside that rectangle. Follow the final arrowhead as the intended destination. Every write_text command must include finite global x and y for its top-left start plus a finite maxWidth chosen from the available blank space.",
@@ -2327,8 +2330,8 @@ function fitWidgetGeometry(command, widgetGeometry = null) {
   h=Math.max(MIN_WIDGET_HEIGHT,h);
   w=Math.min(w,CANVAS_SIZE);
   h=Math.min(h,CANVAS_SIZE);
-  x=Math.max(0,Math.min(CANVAS_SIZE-w,x));
-  y=Math.max(0,Math.min(CANVAS_SIZE-h,y));
+  x=boundedWorldCoordinate(x,w);
+  y=boundedWorldCoordinate(y,h);
   return w >= MIN_WIDGET_WIDTH && h >= MIN_WIDGET_HEIGHT ? { x, y, w, h } : null;
 }
 function normalizedWidgetRefreshSeconds(value) {
@@ -2456,10 +2459,10 @@ function translateTypesetGroup(commands,selected,metrics){
       {x:selected.x,y:selected.y-group.h-gap},
     ],
     candidateBox=point=>({x:point.x,y:point.y,w:group.w,h:group.h}),
-    fits=point=>point.x>=0&&point.y>=0&&point.x+group.w<=CANVAS_SIZE&&point.y+group.h<=CANVAS_SIZE&&!overlaps(candidateBox(point),selected),
+    fits=point=>point.x>=-WORLD_COORDINATE_LIMIT&&point.y>=-WORLD_COORDINATE_LIMIT&&point.x+group.w<=WORLD_COORDINATE_LIMIT&&point.y+group.h<=WORLD_COORDINATE_LIMIT&&!overlaps(candidateBox(point),selected),
     clamp=point=>({
-      x:Math.max(0,Math.min(Math.max(0,CANVAS_SIZE-group.w),point.x)),
-      y:Math.max(0,Math.min(Math.max(0,CANVAS_SIZE-group.h),point.y)),
+      x:Math.max(-WORLD_COORDINATE_LIMIT,Math.min(WORLD_COORDINATE_LIMIT-group.w,point.x)),
+      y:Math.max(-WORLD_COORDINATE_LIMIT,Math.min(WORLD_COORDINATE_LIMIT-group.h,point.y)),
     }),
     overlapArea=point=>{
       const box=candidateBox(point),
@@ -2489,8 +2492,8 @@ function normalizeCommandPlacements(commands,payload){
   if(!command||!["write_text","handwrite_text","draw_formula"].includes(command.tool)||!Number.isFinite(command.x)||!Number.isFinite(command.y))return commands;
   const {fontSize,width,height}=metrics(command),farAbove=command.y+Math.max(fontSize,120)<capture.y,suspiciousTop=command.y<capture.y+Math.max(200,capture.h*.04)&&command.y+Math.max(fontSize,120)<latest.y-Math.max(400,capture.h*.12),farOutside=command.y>capture.y+capture.h||command.x>capture.x+capture.w||command.x+width<capture.x;
   if(!farAbove&&!suspiciousTop&&!farOutside)return commands;
-  const x=Math.max(capture.x,Math.min(capture.x+capture.w-Math.min(width,capture.w),latest.x)),y=Math.max(0,Math.min(CANVAS_SIZE-height,Math.max(capture.y,Math.min(capture.y+capture.h-Math.min(height,capture.h),latest.y+latest.h+padding)))),next={...command,x,y};
-  if(["write_text","handwrite_text"].includes(command.tool))next.maxWidth=Math.max(fontSize,Math.min(width,CANVAS_SIZE-x));
+  const x=boundedWorldCoordinate(Math.max(capture.x,Math.min(capture.x+capture.w-Math.min(width,capture.w),latest.x)),width),y=boundedWorldCoordinate(Math.max(capture.y,Math.min(capture.y+capture.h-Math.min(height,capture.h),latest.y+latest.h+padding)),height),next={...command,x,y};
+  if(["write_text","handwrite_text"].includes(command.tool))next.maxWidth=Math.max(fontSize,Math.min(width,CANVAS_SIZE));
   return[next];
 }
 function hasInvalidTextLayout(result){return result.commands.some(command=>{const tool=command?.tool||command?.type||command?.name;return ["write_text","handwrite_text"].includes(tool)&&(!Number.isFinite(command.x)||!Number.isFinite(command.y)||!Number.isFinite(command.maxWidth))})}
@@ -2510,7 +2513,7 @@ function plotFallback(result,changedBox){
   if(!expression||expression.length>180||!/^[\d\sA-Za-z_+\-*/^().]+$/.test(expression))return null;
   const allowed=new Set(["x","pi","e","sin","cos","tan","sqrt","abs","exp","log","ln"]);
   if((expression.match(/[A-Za-z_]+/g)||[]).some(token=>!allowed.has(token.toLowerCase())))return null;
-  const w=Math.min(3200,CANVAS_SIZE),h=Math.min(2000,CANVAS_SIZE),gap=Math.max(100,Math.min(300,changedBox.h*.12)),x=Math.max(0,Math.min(CANVAS_SIZE-w,changedBox.x)),y=Math.max(0,Math.min(CANVAS_SIZE-h,changedBox.y+changedBox.h+gap));
+  const w=Math.min(3200,CANVAS_SIZE),h=Math.min(2000,CANVAS_SIZE),gap=Math.max(100,Math.min(300,changedBox.h*.12)),x=boundedWorldCoordinate(changedBox.x,w),y=boundedWorldCoordinate(changedBox.y+changedBox.h+gap,h);
   return{tool:"plot_function",x,y,w,h,expression};
 }
 
