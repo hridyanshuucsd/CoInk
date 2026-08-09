@@ -1192,7 +1192,7 @@
         width:Math.max(2, Math.min(12, f / 16)),
       }),
       bounds = layout.bounds,
-      naturalWidth = Math.ceil(Math.max(f, Math.min(maxWidth, (bounds?.maxX || f) + padding))),
+      naturalWidth = Math.ceil(Math.max(f, (bounds?.maxX || f) + padding)),
       naturalHeight = Math.ceil(Math.max(f * lineHeight + padding * 2, (bounds?.maxY || f) + padding)),
       rasterScale = rasterScaleFor(naturalWidth, naturalHeight, pixelRatio),
       image = offscreen(Math.max(1, Math.ceil(naturalWidth * rasterScale)), Math.max(1, Math.ceil(naturalHeight * rasterScale))),
