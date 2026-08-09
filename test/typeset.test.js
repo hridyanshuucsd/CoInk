@@ -55,6 +55,7 @@ test("Typeset placement translates a mixed tool group without changing relative 
   const server = fs.readFileSync(path.join(ROOT, "src", "server", "main.js"), "utf8"),
     translate = vm.runInNewContext(`(${functionSource(server, "translateTypesetGroup")})`, {
       CANVAS_SIZE: 20000,
+      WORLD_COORDINATE_LIMIT: 10000000,
       Number,
       Math,
       overlaps:(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y,
@@ -78,4 +79,20 @@ test("Typeset placement translates a mixed tool group without changing relative 
       { x:commands[index].x - commands[0].x, y:commands[index].y - commands[0].y },
     );
   }
+});
+
+test("Typeset placement follows selections beyond the former page edges", () => {
+  const server = fs.readFileSync(path.join(ROOT, "src", "server", "main.js"), "utf8"),
+    translate = vm.runInNewContext(`(${functionSource(server, "translateTypesetGroup")})`, {
+      CANVAS_SIZE: 20000,
+      WORLD_COORDINATE_LIMIT: 10000000,
+      Number,
+      Math,
+      overlaps:(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y,
+    }),
+    commands = [{ tool:"write_text", x:100, y:100, text:"answer", maxWidth:500 }],
+    moved = translate(commands, { x:-26000, y:-18000, w:800, h:500 }, () => ({ width:500, height:180 }));
+
+  assert.ok(moved[0].x < -20000);
+  assert.ok(moved[0].y < 0);
 });
