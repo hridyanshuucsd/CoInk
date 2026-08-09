@@ -12370,16 +12370,67 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     if (!connected && voiceLevel) runtimeElementStyle(voiceLevel, "voice-level")?.setProperty("--voice-level", ".18");
   }
 
+  function voiceHandwritingCommand(input, visible, occupied = null, index = 0) {
+    if (!input || typeof input.text !== "string" || !input.text.trim() || !visible) return null;
+    const left = visible.x,
+      top = visible.y,
+      right = visible.x + visible.w,
+      bottom = visible.y + visible.h,
+      requestedFontSize = Number(input.fontSize),
+      fontSize = Number.isFinite(requestedFontSize)
+        ? Math.max(36, Math.min(220, requestedFontSize))
+        : Math.max(48, Math.min(120, visible.h / 12)),
+      gap = Math.max(24, fontSize * .6),
+      lineOffset = index * fontSize * 1.6,
+      requestedX = Number(input.x),
+      requestedY = Number(input.y),
+      usableX = Number.isFinite(requestedX) && requestedX >= left && requestedX <= right - fontSize,
+      usableY = Number.isFinite(requestedY) && requestedY >= top && requestedY <= bottom - fontSize * 1.3;
+    let x = usableX ? requestedX : left + gap,
+      y = usableY ? requestedY : top + gap + lineOffset;
+    if (!usableX && !usableY && occupied) {
+      const below = occupied.y + occupied.h + gap + lineOffset,
+        beside = occupied.x + occupied.w + gap;
+      if (below <= bottom - fontSize * 1.3) {
+        x = Math.max(left + gap, Math.min(right - fontSize - gap, occupied.x));
+        y = below;
+      } else if (beside <= right - fontSize * 3) {
+        x = beside;
+        y = Math.max(top + gap, Math.min(bottom - fontSize * 1.3, occupied.y + lineOffset));
+      }
+    }
+    if (right - x - gap < fontSize) x = Math.max(left, right - fontSize - gap);
+    const availableWidth = Math.max(fontSize, right - x - gap),
+      requestedMaxWidth = Number(input.maxWidth),
+      maxWidth = Number.isFinite(requestedMaxWidth)
+        ? Math.max(fontSize, Math.min(availableWidth, requestedMaxWidth))
+        : Math.min(1000, availableWidth);
+    return {
+      ...input,
+      tool:"handwrite_text",
+      text:input.text.trim(),
+      x,
+      y,
+      fontSize,
+      maxWidth,
+      lineHeight:Math.max(1, Math.min(2.2, Number(input.lineHeight) || 1.3)),
+    };
+  }
+
   function queueVoiceCanvasCommands(input) {
     if (state.busy) return { ok:false, error:"The canvas model is busy. Speak the hint without drawing for this turn." };
     const raw = Array.isArray(input?.commands) ? input.commands.slice(0, 6) : [],
       visible = viewportRect(),
-      commands = validate(raw, state.aiColor, null, visible),
+      occupied = visible ? visibleInkBounds(visible) : null,
+      normalized = raw
+        .map((command, index) => command?.tool === "handwrite_text" ? voiceHandwritingCommand(command, visible, occupied, index) : command)
+        .filter(Boolean),
+      commands = validate(normalized, state.aiColor, null, visible),
       revision = state.userRevision,
       meta = { requestId:`voice-${Date.now()}` };
     if (!commands.length) return { ok:false, error:"No valid canvas command was supplied." };
     void Promise.allSettled(commands.map(command => animate(command, revision, meta, null)));
-    return { ok:true, accepted:commands.length };
+    return { ok:true, accepted:commands.length, status:"drafted", message:"The canvas draft is visible and ready for the student to accept." };
   }
 
   function mathVerificationInput(args) {
@@ -12404,8 +12455,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     if (!voiceTutor) return;
     const { name, callId, args } = event.detail || {};
     try {
-      const output = name === "canvas_commands"
-        ? queueVoiceCanvasCommands(args)
+      const output = name === "write_on_canvas"
+        ? queueVoiceCanvasCommands({ commands:[{ ...args, tool:"handwrite_text" }] })
+        : name === "canvas_commands"
+          ? queueVoiceCanvasCommands(args)
         : name === "verify_math"
           ? await verifyVoiceMath(args)
           : { ok:false, error:"Unknown tutor tool." };
