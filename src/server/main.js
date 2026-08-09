@@ -2495,10 +2495,10 @@ function normalizeCommandPlacements(commands,payload){
 }
 function hasInvalidTextLayout(result){return result.commands.some(command=>{const tool=command?.tool||command?.type||command?.name;return ["write_text","handwrite_text"].includes(tool)&&(!Number.isFinite(command.x)||!Number.isFinite(command.y)||!Number.isFinite(command.maxWidth))})}
 function hasInvalidDrawCommand(result){
-  return result.commands.some(command=>(command?.tool||command?.type||command?.name)==="draw"&&!DRAW.normalize(command,CANVAS_SIZE));
+  return result.commands.some(command=>(command?.tool||command?.type||command?.name)==="draw"&&!DRAW.normalize(command,{maxExtent:CANVAS_SIZE,coordinateLimit:WORLD_COORDINATE_LIMIT}));
 }
 function filterInvalidDrawCommands(commands){
-  return commands.filter(command=>command?.tool!=="draw"||DRAW.normalize(command,CANVAS_SIZE));
+  return commands.filter(command=>command?.tool!=="draw"||DRAW.normalize(command,{maxExtent:CANVAS_SIZE,coordinateLimit:WORLD_COORDINATE_LIMIT}));
 }
 function hasVisualCommand(result){
   return result.commands.some(command=>["plot_function","generate_image","draw","html_widget","diagram_source"].includes(command?.tool||command?.type||command?.name));

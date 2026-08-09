@@ -11,6 +11,16 @@
     MAX_RASTER_SIDE = 4096;
 
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
+  function normalizeLimits(options) {
+    const edgeless = typeof options === "object",
+      maxExtent = edgeless ? Number(options.maxExtent) : Number(options),
+      coordinateLimit = edgeless ? Number(options.coordinateLimit) : maxExtent;
+    return {
+      maxExtent:Number.isFinite(maxExtent) && maxExtent > 0 ? Math.floor(maxExtent) : 20000,
+      coordinateLimit:Number.isFinite(coordinateLimit) && coordinateLimit > 0 ? Math.floor(coordinateLimit) : 20000,
+      coordinateMinimum:edgeless ? -(Number.isFinite(coordinateLimit) && coordinateLimit > 0 ? Math.floor(coordinateLimit) : 20000) : 0,
+    };
+  }
   const copyPoint = (point) => ({ x: point.x, y: point.y });
   const includePoint = (bounds, point) => {
     bounds.left = Math.min(bounds.left, point.x);
@@ -120,8 +130,9 @@
     }
     return result;
   }
-  function normalize(command, canvasSize = 20000) {
-    if (!command || typeof command !== "object" || !Array.isArray(command.origin) || command.origin.length !== 2 || !command.origin.every((value) => integer(value, 0, canvasSize))) return null;
+  function normalize(command, options = 20000) {
+    const { maxExtent, coordinateLimit, coordinateMinimum } = normalizeLimits(options);
+    if (!command || typeof command !== "object" || !Array.isArray(command.origin) || command.origin.length !== 2 || !command.origin.every((value) => integer(value, coordinateMinimum, coordinateLimit))) return null;
     if (!Array.isArray(command.types) || !Array.isArray(command.items) || !command.types.length || command.types.length !== command.items.length || command.types.length > MAX_ITEMS) return null;
     const width = command.width === undefined ? 30 : command.width,
       tension = command.tension === undefined ? 50 : command.tension;
@@ -134,7 +145,7 @@
     let valueCount = 0;
     for (let index = 0; index < command.items.length; index++) {
       const type = command.types[index], item = command.items[index];
-      if (!TYPES.has(type) || !Array.isArray(item) || !item.every((value) => integer(value, -canvasSize, canvasSize))) return null;
+      if (!TYPES.has(type) || !Array.isArray(item) || !item.every((value) => integer(value, -maxExtent, maxExtent))) return null;
       valueCount += item.length;
       if (valueCount > MAX_VALUES) return null;
       const primitive = { type, closed: closed.has(index), fill: fill.has(index), arrow: arrows.has(index) };
@@ -155,7 +166,7 @@
           primitive.arrowPoints.forEach((point) => includePoint(bounds, point));
         }
       } else if (type === "rect") {
-        if (item.length !== 4 || !integer(item[2], 1, canvasSize) || !integer(item[3], 1, canvasSize) || primitive.closed || primitive.arrow) return null;
+        if (item.length !== 4 || !integer(item[2], 1, maxExtent) || !integer(item[3], 1, maxExtent) || primitive.closed || primitive.arrow) return null;
         primitive.x = command.origin[0] + item[0];
         primitive.y = command.origin[1] + item[1];
         primitive.w = item[2];
@@ -163,7 +174,7 @@
         includePoint(bounds, { x: primitive.x, y: primitive.y });
         includePoint(bounds, { x: primitive.x + primitive.w, y: primitive.y + primitive.h });
       } else if (type === "ellipse") {
-        if (item.length !== 4 || !integer(item[2], 1, canvasSize) || !integer(item[3], 1, canvasSize) || primitive.closed || primitive.arrow) return null;
+        if (item.length !== 4 || !integer(item[2], 1, maxExtent) || !integer(item[3], 1, maxExtent) || primitive.closed || primitive.arrow) return null;
         primitive.cx = command.origin[0] + item[0];
         primitive.cy = command.origin[1] + item[1];
         primitive.rx = item[2];
@@ -171,14 +182,14 @@
         includePoint(bounds, { x: primitive.cx - primitive.rx, y: primitive.cy - primitive.ry });
         includePoint(bounds, { x: primitive.cx + primitive.rx, y: primitive.cy + primitive.ry });
       } else if (type === "circle") {
-        if (item.length !== 3 || !integer(item[2], 1, canvasSize) || primitive.closed || primitive.arrow) return null;
+        if (item.length !== 3 || !integer(item[2], 1, maxExtent) || primitive.closed || primitive.arrow) return null;
         primitive.cx = command.origin[0] + item[0];
         primitive.cy = command.origin[1] + item[1];
         primitive.rx = primitive.ry = item[2];
         includePoint(bounds, { x: primitive.cx - primitive.rx, y: primitive.cy - primitive.ry });
         includePoint(bounds, { x: primitive.cx + primitive.rx, y: primitive.cy + primitive.ry });
       } else {
-        if (item.length !== 6 || !integer(item[2], 1, canvasSize) || !integer(item[3], 1, canvasSize) || !integer(item[4], -3600, 3600) || !integer(item[5], -3600, 3600) || item[5] === 0 || primitive.closed || primitive.fill) return null;
+        if (item.length !== 6 || !integer(item[2], 1, maxExtent) || !integer(item[3], 1, maxExtent) || !integer(item[4], -3600, 3600) || !integer(item[5], -3600, 3600) || item[5] === 0 || primitive.closed || primitive.fill) return null;
         primitive.cx = command.origin[0] + item[0];
         primitive.cy = command.origin[1] + item[1];
         primitive.rx = item[2];
@@ -197,13 +208,13 @@
       }
       primitives.push(primitive);
     }
-    if (bounds.left < 0 || bounds.top < 0 || bounds.right > canvasSize || bounds.bottom > canvasSize) return null;
+    if (bounds.left < coordinateMinimum || bounds.top < coordinateMinimum || bounds.right > coordinateLimit || bounds.bottom > coordinateLimit) return null;
     const pad = Math.ceil(width / 2 + 4),
       imageBounds = {
-        x: Math.max(0, Math.floor(bounds.left - pad)),
-        y: Math.max(0, Math.floor(bounds.top - pad)),
-        right: Math.min(canvasSize, Math.ceil(bounds.right + pad)),
-        bottom: Math.min(canvasSize, Math.ceil(bounds.bottom + pad)),
+        x: Math.max(coordinateMinimum, Math.floor(bounds.left - pad)),
+        y: Math.max(coordinateMinimum, Math.floor(bounds.top - pad)),
+        right: Math.min(coordinateLimit, Math.ceil(bounds.right + pad)),
+        bottom: Math.min(coordinateLimit, Math.ceil(bounds.bottom + pad)),
       };
     imageBounds.w = Math.max(1, imageBounds.right - imageBounds.x);
     imageBounds.h = Math.max(1, imageBounds.bottom - imageBounds.y);

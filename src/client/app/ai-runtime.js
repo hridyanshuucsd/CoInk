@@ -923,7 +923,7 @@
           generatedImageSlots--;
         }
         if (c.tool === "draw") {
-          const normalized = DRAW?.normalize(c, SIZE);
+          const normalized = DRAW?.normalize(c, { maxExtent:SIZE, coordinateLimit:WORLD_COORDINATE_LIMIT });
           if (!normalized) return null;
           c = { ...normalized, color:aiColor };
         }
