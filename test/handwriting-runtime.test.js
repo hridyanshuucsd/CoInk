@@ -32,6 +32,14 @@ test("handwriting wraps every glyph of words wider than the requested line", asy
   assert.ok(result.height > 86, "the oversized word should continue on another line");
 });
 
+test("a single wide mathematical symbol remains renderable at the minimum line width", async () => {
+  const { layoutHandwriting } = await handwritingModule(), result = layoutHandwriting("→", {
+    x:10, y:10, fontSize:80, maxWidth:80, seed:"wide-symbol",
+  });
+  assert.ok(result.strokes.length > 0);
+  assert.ok(Number.isFinite(result.bounds.maxX));
+});
+
 test("success-scenario teaching phrases remain complete inside narrow handwriting lines", async () => {
   const { layoutHandwriting } = await handwritingModule(), phrases = [
     "minus a negative",

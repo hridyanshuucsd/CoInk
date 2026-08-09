@@ -122,7 +122,7 @@ export function layoutHandwriting(text, {
     if (!token) return;
     const isWhitespace = /^\s+$/.test(token);
     const estimated = tokenWidth(token);
-    if (!isWhitespace && estimated > maxWidth) {
+    if (!isWhitespace && estimated > maxWidth && Array.from(token).length > 1) {
       if (cursorX > x) newline();
       for (const ch of token) {
         const characterWidth = tokenWidth(ch);
