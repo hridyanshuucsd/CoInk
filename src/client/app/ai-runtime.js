@@ -857,7 +857,7 @@
       generatedImageSlots = 1,
       widgetSlots = widgetEditTarget ? 1 : Math.max(0, MAX_VISIBLE_WIDGETS - state.widgets.length),
       widgetPluginIds = new Set(enabledPluginDescriptors().map((plugin) => plugin.id));
-    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"];
+    const acceptedTools = ["write_text", "handwrite_text", "math_work", "draw_formula", "plot_function", "generate_image", "draw", "erase"];
     if (widgetPluginIds.size) acceptedTools.push("html_widget");
     if (widgetPluginIds.has("flowchart")) acceptedTools.push("diagram_source");
     const validated = cmds
@@ -885,6 +885,20 @@
           c.color = aiColor;
           if (c.maxWidth < c.fontSize) return null;
           c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
+        }
+        if (c.tool === "math_work") {
+          if (!n(c.x) || !n(c.y) || !Array.isArray(c.steps) || !c.steps.length || c.steps.length > 8) return null;
+          const steps = c.steps.map((step) => {
+            const equation = typeof step?.equation === "string" ? step.equation.trim().slice(0, 180) : "",
+              operation = typeof step?.operation === "string" ? step.operation.trim().slice(0, 80) : "";
+            if (!equation || equation.split("=").length !== 2) return null;
+            return { equation, ...(operation ? { operation } : {}) };
+          });
+          if (steps.some((step) => !step)) return null;
+          c.steps = steps;
+          c.fontSize = matchedFontSize(c.fontSize);
+          c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.25));
+          c.color = aiColor;
         }
         if (c.tool === "draw_formula") {
           if (!n(c.x) || !n(c.y) || typeof c.latex !== "string") return null;
@@ -1080,6 +1094,7 @@
       pendingCommand = c;
     if (c.tool === "write_text") image = textImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, state.aiFont, AI_TEXT_MAX_LENGTH, sharpRenderRatio());
     else if (c.tool === "handwrite_text") image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
+    else if (c.tool === "math_work") image = await mathWorkImage(c.steps, c.fontSize, c.color, c.lineHeight, sharpRenderRatio());
     else if (c.tool === "draw_formula") image = await formulaImage(c.latex, c.fontSize, c.color);
     else if (c.tool === "plot_function") image = plot(c);
     else if (c.tool === "generate_image") image = await generatedImageDraft(c);
@@ -1113,14 +1128,14 @@
     const gap = Math.max(40, 14 / Math.max(0.03, state.scale)),
       visible = viewportRect() || { x:0, y:0, w:SIZE, h:SIZE },
       flow = items
-        .filter((item) => ["write_text", "handwrite_text", "draw_formula"].includes(item.command.tool))
+        .filter((item) => ["write_text", "handwrite_text", "math_work", "draw_formula"].includes(item.command.tool))
         .sort((a, b) => a.y - b.y || a.x - b.x),
       placed = [],
       fixed = obstacles
         .filter((box) => box && [box.x, box.y, box.w, box.h].every(Number.isFinite) && box.w > 0 && box.h > 0)
         .map((box) => ({ ...box }))
         .concat(items
-          .filter((item) => !["write_text", "handwrite_text", "draw_formula", "draw"].includes(item.command.tool))
+          .filter((item) => !["write_text", "handwrite_text", "math_work", "draw_formula", "draw"].includes(item.command.tool))
           .map((item) => item.erase ? item.bounds : { x:item.x, y:item.y, w:item.layoutWidth, h:item.layoutHeight }));
     const intersects = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x)
       && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
@@ -1237,6 +1252,103 @@
     image.revealRowHeight = naturalHeight;
     image.naturalWidth = image.logicalWidth = naturalWidth;
     image.naturalHeight = image.logicalHeight = naturalHeight;
+    return image;
+  }
+  function mathWorkGeometry(rows, fontSize) {
+    const padding = Math.max(8, fontSize * .2),
+      columnGap = Math.max(10, fontSize * .32),
+      rowGap = Math.max(8, fontSize * .18),
+      stepGap = Math.max(12, fontSize * .3),
+      leftWidth = Math.max(fontSize, ...rows.map((row) => row.leftWidth || 0)),
+      equalsWidth = Math.max(fontSize * .5, ...rows.map((row) => row.equalsWidth || 0)),
+      rightWidth = Math.max(fontSize, ...rows.map((row) => Math.max(row.rightWidth || 0, row.operationWidth || 0))),
+      equalsX = padding + leftWidth + columnGap,
+      rightX = equalsX + equalsWidth + columnGap;
+    let y = padding;
+    const placedRows = rows.map((row) => {
+      const equationHeight = Math.max(row.height || fontSize, fontSize),
+        operationWidth = row.operationWidth || 0,
+        operationHeight = row.operationHeight || 0,
+        placed = {
+          ...row,
+          y,
+          leftX:equalsX - columnGap - (row.leftWidth || 0),
+          equalsX,
+          rightX,
+          operationWidth,
+          leftOperationX:equalsX - columnGap - operationWidth,
+          rightOperationX:rightX,
+          operationY:y + equationHeight + rowGap,
+        };
+      if (operationWidth > 0) {
+        placed.dividerY = placed.operationY + operationHeight + rowGap * .45;
+        placed.leftDivider = { x1:Math.min(placed.leftX, placed.leftOperationX), x2:equalsX - columnGap * .45 };
+        placed.rightDivider = { x1:rightX, x2:rightX + Math.max(row.rightWidth || 0, operationWidth) };
+        y = placed.dividerY + stepGap;
+      } else y += equationHeight + stepGap;
+      return placed;
+    });
+    return {
+      rows:placedRows,
+      width:Math.ceil(rightX + rightWidth + padding),
+      height:Math.ceil(y + padding),
+    };
+  }
+  async function mathWorkImage(steps, fontSize, color, lineHeight = 1.25, pixelRatio = 1) {
+    const ink = color || "#2563eb",
+      component = async (text, size = fontSize) => handwritingImage(
+        text,
+        size,
+        ink,
+        Math.max(size * 2, Array.from(text).length * size * .9),
+        lineHeight,
+        pixelRatio,
+      ),
+      prepared = await Promise.all(steps.map(async (step) => {
+        const [leftText, rightText] = step.equation.split("=").map((part) => part.trim()),
+          [left, equals, right, operation] = await Promise.all([
+            component(leftText),
+            component("="),
+            component(rightText),
+            step.operation ? component(step.operation, fontSize * .82) : null,
+          ]);
+        return { left, equals, right, operation };
+      })),
+      geometry = mathWorkGeometry(prepared.map((row) => ({
+        leftWidth:row.left.logicalWidth,
+        equalsWidth:row.equals.logicalWidth,
+        rightWidth:row.right.logicalWidth,
+        height:Math.max(row.left.logicalHeight, row.equals.logicalHeight, row.right.logicalHeight),
+        operationWidth:row.operation?.logicalWidth || 0,
+        operationHeight:row.operation?.logicalHeight || 0,
+      })), fontSize),
+      rasterScale = rasterScaleFor(geometry.width, geometry.height, pixelRatio),
+      image = offscreen(Math.max(1, Math.ceil(geometry.width * rasterScale)), Math.max(1, Math.ceil(geometry.height * rasterScale))),
+      q = image.getContext("2d"),
+      draw = (source, x, y) => source && q.drawImage(source, x, y, source.logicalWidth, source.logicalHeight);
+    q.scale(rasterScale, rasterScale);
+    q.strokeStyle = ink;
+    q.lineCap = "round";
+    q.lineWidth = Math.max(2, fontSize / 32);
+    geometry.rows.forEach((row, index) => {
+      const source = prepared[index];
+      draw(source.left, row.leftX, row.y);
+      draw(source.equals, row.equalsX, row.y);
+      draw(source.right, row.rightX, row.y);
+      if (!source.operation) return;
+      draw(source.operation, row.leftOperationX, row.operationY);
+      draw(source.operation, row.rightOperationX, row.operationY);
+      q.beginPath();
+      q.moveTo(row.leftDivider.x1, row.dividerY);
+      q.lineTo(row.leftDivider.x2, row.dividerY);
+      q.moveTo(row.rightDivider.x1, row.dividerY);
+      q.lineTo(row.rightDivider.x2, row.dividerY);
+      q.stroke();
+    });
+    image.revealRows = geometry.rows.map(() => geometry.width);
+    image.revealRowHeight = geometry.height / Math.max(1, geometry.rows.length);
+    image.naturalWidth = image.logicalWidth = geometry.width;
+    image.naturalHeight = image.logicalHeight = geometry.height;
     return image;
   }
   async function generatedImageDraft(command) {
@@ -1527,6 +1639,7 @@
     });
   }
   function copyTextForCommand(command) {
+    if (command?.tool === "math_work") return command.steps.map((step) => `${step.equation}${step.operation ? `\n  ${step.operation} on both sides` : ""}`).join("\n");
     if (["write_text", "handwrite_text"].includes(command?.tool) && typeof command.text === "string") return command.text;
     if (command?.tool === "draw_formula" && typeof command.latex === "string") return command.latex;
     if (command?.tool === "generate_image" && typeof command.prompt === "string") return command.prompt;
