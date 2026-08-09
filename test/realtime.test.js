@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   REALTIME_CALL_URL,
+  WRITE_ON_CANVAS_TOOL,
   createRealtimeCall,
   realtimeConfiguration,
   realtimeSession,
@@ -21,7 +22,10 @@ test("Realtime voice uses an official selected OpenAI connection without exposin
   assert.equal(configuration.model, "gpt-realtime-2.1");
   const session = realtimeSession(configuration);
   assert.deepEqual(session.output_modalities, ["audio"]);
-  assert.deepEqual(session.tools.map(tool => tool.name), ["canvas_commands", "verify_math"]);
+  assert.deepEqual(session.tools.map(tool => tool.name), ["write_on_canvas", "canvas_commands", "verify_math"]);
+  assert.deepEqual(WRITE_ON_CANVAS_TOOL.parameters.required, ["text"]);
+  assert.match(WRITE_ON_CANVAS_TOOL.description, /whenever the student asks/i);
+  assert.match(session.instructions, /never say that you cannot write or draw/i);
   assert.doesNotMatch(JSON.stringify(session), /sk-private/);
 });
 

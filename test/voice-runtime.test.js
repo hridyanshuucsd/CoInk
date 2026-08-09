@@ -4,9 +4,21 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8");
+const functionSource = (source, name) => {
+  const start = source.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `missing function ${name}`);
+  const body = source.indexOf("{", start);
+  let depth = 0;
+  for (let index = body; index < source.length; index++) {
+    if (source[index] === "{") depth++;
+    else if (source[index] === "}" && --depth === 0) return source.slice(start, index + 1);
+  }
+  assert.fail(`unterminated function ${name}`);
+};
 
 test("voice tutor control is accessible and bundled before client initialization", () => {
   const html = read("public/index.html"), css = read("public/style.css"), build = read("scripts/build-client.js"), bootstrap = read("src/client/app/ui-bootstrap.js");
@@ -22,7 +34,8 @@ test("voice tutor sends authenticated WebRTC, canvas, and exact-math tool traffi
   assert.match(runtime, /import\("\/realtime\.js"\)/);
   assert.match(runtime, /requestHeaders:headers => aiRequestHeaders\(headers\)/);
   assert.match(runtime, /buildViewportImage\(\[\], visible, true\)/);
-  assert.match(runtime, /queueVoiceCanvasCommands[\s\S]*?validate\(raw[\s\S]*?animate\(command/);
+  assert.match(runtime, /queueVoiceCanvasCommands[\s\S]*?voiceHandwritingCommand[\s\S]*?validate\(normalized[\s\S]*?animate\(command/);
+  assert.match(runtime, /name === "write_on_canvas"[\s\S]*?queueVoiceCanvasCommands/);
   assert.match(runtime, /fetch\("\/api\/math\/verify"/);
   assert.match(transport, /credentials:'same-origin'/);
   assert.match(server, /url\.pathname === "\/api\/realtime\/call"/);
@@ -32,6 +45,31 @@ test("voice tutor sends authenticated WebRTC, canvas, and exact-math tool traffi
 test("voice tutor configuration uses the current documented Realtime model", () => {
   const realtime = require("../src/server/realtime.js"), session = realtime.realtimeSession({ model:realtime.DEFAULT_REALTIME_MODEL, voice:"marin", eagerness:"auto" });
   assert.equal(realtime.DEFAULT_REALTIME_MODEL, "gpt-realtime-2.1");
-  assert.deepEqual(session.tools.map(tool => tool.name), ["canvas_commands", "verify_math"]);
+  assert.deepEqual(session.tools.map(tool => tool.name), ["write_on_canvas", "canvas_commands", "verify_math"]);
   assert.match(session.instructions, /never claim to be human/i);
+});
+
+test("voice handwriting supplies safe visible defaults when Realtime omits geometry", () => {
+  const runtime = read("src/client/app/voice-runtime.js"),
+    normalize = vm.runInNewContext(`(${functionSource(runtime, "voiceHandwritingCommand")})`),
+    visible = { x:1000, y:2000, w:1600, h:1000 },
+    occupied = { x:1100, y:2100, w:700, h:220 },
+    command = normalize({ text:"Try factoring first" }, visible, occupied, 0);
+  assert.equal(command.tool, "handwrite_text");
+  assert.equal(command.text, "Try factoring first");
+  assert.ok(command.x >= visible.x && command.x < visible.x + visible.w);
+  assert.ok(command.y > occupied.y + occupied.h);
+  assert.ok(command.maxWidth >= command.fontSize);
+  assert.ok(command.x + command.maxWidth <= visible.x + visible.w);
+});
+
+test("voice handwriting preserves usable model geometry and fills only missing fields", () => {
+  const runtime = read("src/client/app/voice-runtime.js"),
+    normalize = vm.runInNewContext(`(${functionSource(runtime, "voiceHandwritingCommand")})`),
+    visible = { x:0, y:0, w:1800, h:1200 },
+    command = normalize({ text:"x = 4", x:900, y:500, fontSize:88 }, visible, null, 0);
+  assert.equal(command.x, 900);
+  assert.equal(command.y, 500);
+  assert.equal(command.fontSize, 88);
+  assert.ok(Number.isFinite(command.maxWidth));
 });
