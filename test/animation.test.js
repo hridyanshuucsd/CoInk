@@ -52,6 +52,17 @@ test("normalizes a compact declarative animation scene", () => {
   assert.equal(scene.objects[0].fill, "#f59e0b");
 });
 
+test("normalizes animation scenes beyond the former page origin", () => {
+  const scene = ANIMATION.normalize(
+    { ...solarSystem(), x:-32000, y:-14000 },
+    { coordinateLimit:10000000 },
+  );
+
+  assert.ok(scene);
+  assert.equal(scene.x, -32000);
+  assert.equal(scene.y, -14000);
+});
+
 test("forces animation scenes and serialized snapshots to keep a transparent background", () => {
   const scene = ANIMATION.normalize({ ...solarSystem(), background: "#000000" }),
     saved = ANIMATION.serialize({ ...scene, background: "black" }),
