@@ -2,6 +2,8 @@
 "use strict";
 (() => {
   const SIZE = 20000,
+    WORLD_COORDINATE_LIMIT = 10000000,
+    WORLD_COORDINATE_BOUNDS = Object.freeze({ min:-WORLD_COORDINATE_LIMIT, max:WORLD_COORDINATE_LIMIT }),
     TILE = 512,
     DIRTY_MASK_SCALE = 0.25,
     INITIAL_VIEW_ZOOM = 1.5,
@@ -1110,6 +1112,9 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   };
   const setStatusKey = (key) => setStatus(t(key), key);
   const t = (key) => I18N[state.language][key] || I18N.zh[key] || key;
+  function worldCoordinate(value, extent = 0) {
+    return Math.max(-WORLD_COORDINATE_LIMIT, Math.min(WORLD_COORDINATE_LIMIT - Math.max(0, extent), Number(value) || 0));
+  }
   function renderCanvasHint(restart = false) {
     if (!canvasHint || !state.canvasHintKey) return;
     canvasHint.textContent = `Hint: ${t(state.canvasHintKey)}`;
@@ -1155,7 +1160,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         if (!intersection(tileBox, visible)) continue;
         let ink = state.inkBounds.get(k);
         if (ink === undefined) {
-          ink = c ? inkBox(c, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE)) : null;
+          ink = c ? inkBox(c, TILE, TILE) : null;
           state.inkBounds.set(k, ink);
         }
         if (ink) rects.push({ x: tileBox.x + ink.x, y: tileBox.y + ink.y, w: ink.w, h: ink.h });
@@ -3299,13 +3304,13 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       y = Number(item.y),
       fontSize = Number(item.fontSize),
       maxWidth = Number(item.maxWidth);
-    if (![x, y, fontSize, maxWidth].every(Number.isFinite) || x < 0 || y < 0 || fontSize < 1 || fontSize > 2000 || maxWidth < fontSize * 3 || maxWidth > SIZE) return null;
+    if (![x, y, fontSize, maxWidth].every(Number.isFinite) || Math.abs(x) > WORLD_COORDINATE_LIMIT || Math.abs(y) > WORLD_COORDINATE_LIMIT || fontSize < 1 || fontSize > 2000 || maxWidth < fontSize * 3 || maxWidth > SIZE) return null;
     const color = item.color || state.inkColor,
       fitted = await fittedTextBoxContent(item.text, fontSize, color, maxWidth),
       width = fitted.width,
       height = fitted.height,
-      fittedX = Math.max(0, Math.min(SIZE - width, x)),
-      fittedY = Math.max(0, Math.min(SIZE - height, y));
+      fittedX = worldCoordinate(x, width),
+      fittedY = worldCoordinate(y, height);
     if (width <= 0 || height <= 0) return null;
     return {
       id:typeof item.id === "string" && /^text-box-\d+$/.test(item.id) ? item.id : `text-box-${state.nextTextBoxId++}`,
@@ -3375,7 +3380,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   }
   function imageRecord(item) {
     if (!item || typeof item !== "object" || !(item.blob instanceof Blob) || !item.image || item.blob.size <= 0 || item.blob.size > MAX_IMAGE_SOURCE_BYTES) return null;
-    if (!n(item.x) || !n(item.y) || !n(item.w, 80) || !n(item.h, 80) || item.x + item.w > SIZE || item.y + item.h > SIZE) return null;
+    if (!n(item.x) || !n(item.y) || !n(item.w, 80, SIZE) || !n(item.h, 80, SIZE)) return null;
     const naturalW = Number(item.naturalW) || item.image.naturalWidth || item.image.width,
       naturalH = Number(item.naturalH) || item.image.naturalHeight || item.image.height;
     if (!n(naturalW, 1, MAX_IMAGE_DIMENSION) || !n(naturalH, 1, MAX_IMAGE_DIMENSION) || naturalW * naturalH > MAX_IMAGE_PIXELS) return null;
@@ -3890,8 +3895,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   }
   function resizeImageBox(start, point, hit) {
     const minimumWidth = 80, minimumHeight = 80,
-      maximumWidth = SIZE - start.x,
-      maximumHeight = SIZE - start.y;
+      maximumWidth = SIZE,
+      maximumHeight = SIZE;
     if (hit === "width") return { ...start, w:Math.max(minimumWidth, Math.min(maximumWidth, point.x - start.x)) };
     if (hit === "height") return { ...start, h:Math.max(minimumHeight, Math.min(maximumHeight, point.y - start.y)) };
     const minimumScale = Math.max(minimumWidth / start.w, minimumHeight / start.h),
@@ -3920,8 +3925,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     if (!gesture || gesture.id !== event.pointerId) return false;
     const point = clientPoint(event), item = gesture.image;
     if (gesture.hit === "move") {
-      item.x = Math.max(0, Math.min(SIZE - item.w, gesture.start.x + point.x - gesture.startPoint.x));
-      item.y = Math.max(0, Math.min(SIZE - item.h, gesture.start.y + point.y - gesture.startPoint.y));
+      item.x = worldCoordinate(gesture.start.x + point.x - gesture.startPoint.x, item.w);
+      item.y = worldCoordinate(gesture.start.y + point.y - gesture.startPoint.y, item.h);
     } else Object.assign(item, resizeImageBox(gesture.start, point, gesture.hit));
     gesture.changed = ["x", "y", "w", "h"].some((key) => Math.abs(item[key] - gesture.start[key]) > 0.01);
     requestRender();
@@ -3967,10 +3972,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     recordImagesBefore();
     const box = imageBox(item);
     invalidateSharpOverlays(box);
-    const x0 = Math.max(0, Math.floor(box.x / TILE)),
-      y0 = Math.max(0, Math.floor(box.y / TILE)),
-      x1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((box.x + box.w) / TILE) - 1),
-      y1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((box.y + box.h) / TILE) - 1);
+    const x0 = Math.floor(box.x / TILE),
+      y0 = Math.floor(box.y / TILE),
+      x1 = Math.ceil((box.x + box.w) / TILE) - 1,
+      y1 = Math.ceil((box.y + box.h) / TILE) - 1;
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
         recordBefore(tx, ty);
@@ -4010,8 +4015,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       scale = Math.min(maxW / naturalW, maxH / naturalH),
       w = Math.max(80, naturalW * scale),
       h = Math.max(80, naturalH * scale),
-      x = Math.max(0, Math.min(SIZE - w, visible.x + (visible.w - w) / 2)),
-      y = Math.max(0, Math.min(SIZE - h, visible.y + (visible.h - h) / 2));
+      x = worldCoordinate(visible.x + (visible.w - w) / 2, w),
+      y = worldCoordinate(visible.y + (visible.h - h) / 2, h);
     return { x, y, w, h };
   }
   function imageImportError(key) {
@@ -4149,7 +4154,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         : typeof item.html === "string" ? item.html : "";
     if (widgetType === "html_widget" && (!html.trim() || html.length > MAX_WIDGET_HTML_LENGTH)
       || widgetType === "diagram_source" && (!source || !normalizedSourceFormat || html.length > MAX_WIDGET_HTML_LENGTH)) return null;
-    if (!n(item.x) || !n(item.y) || !n(item.w, 300, SIZE) || !n(item.h, 200, SIZE) || item.x + item.w > SIZE || item.y + item.h > SIZE) return null;
+    if (!n(item.x) || !n(item.y) || !n(item.w, 300, SIZE) || !n(item.h, 200, SIZE)) return null;
     const contentW = item.contentW ?? item.w,
       contentH = item.contentH ?? item.h;
     if (!Number.isFinite(contentW) || contentW < 300 || contentW > MAX_WIDGET_CONTENT_DIMENSION
@@ -4587,19 +4592,19 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     if (hit === "width") {
       const displayScale = start.h / contentH,
         minimum = Math.max(minimumWidth, minimumWidth * displayScale),
-        maximum = limit - start.x,
+        maximum = limit,
         width = Math.max(minimum, Math.min(maximum, point.x - start.x));
       return { ...start, w:width, contentW:width / displayScale };
     }
     if (hit === "height") {
       const displayScale = start.w / contentW,
         minimum = Math.max(minimumHeight, minimumHeight * displayScale),
-        maximum = limit - start.y,
+        maximum = limit,
         height = Math.max(minimum, Math.min(maximum, point.y - start.y));
       return { ...start, h:height, contentH:height / displayScale };
     }
     const minimumScale = Math.max(minimumWidth / start.w, minimumHeight / start.h),
-      maximumScale = Math.min((limit - start.x) / start.w, (limit - start.y) / start.h),
+      maximumScale = Math.min(limit / start.w, limit / start.h),
       requestedScale = Math.max((point.x - start.x) / start.w, (point.y - start.y) / start.h),
       scale = Math.max(minimumScale, Math.min(maximumScale, requestedScale));
     return { ...start, w:start.w * scale, h:start.h * scale };
@@ -4625,8 +4630,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function updateWidgetGesturePoint(gesture, point) {
     const widget = gesture.widget;
     if (gesture.hit === "move") {
-      widget.x = Math.max(0, Math.min(SIZE - widget.w, gesture.start.x + point.x - gesture.startPoint.x));
-      widget.y = Math.max(0, Math.min(SIZE - widget.h, gesture.start.y + point.y - gesture.startPoint.y));
+      widget.x = worldCoordinate(gesture.start.x + point.x - gesture.startPoint.x, widget.w);
+      widget.y = worldCoordinate(gesture.start.y + point.y - gesture.startPoint.y, widget.h);
     } else Object.assign(widget, resizeWidgetBox(gesture.start, point, gesture.hit));
     gesture.changed = ["x", "y", "w", "h"].some((key) => Math.abs(widget[key] - gesture.start[key]) > 0.01);
     positionWidget(widget);
@@ -5101,7 +5106,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   }
   function addAnimation(scene, transform = scene, playback = null) {
     if (!pluginEnabled("animation") || state.animations.length >= MAX_VISIBLE_ANIMATIONS) return null;
-    const normalized = ANIMATION?.normalize(scene, SIZE);
+    const normalized = ANIMATION?.normalize(scene, { coordinateLimit:WORLD_COORDINATE_LIMIT });
     if (!normalized) return null;
     recordAnimationsBefore();
     const now = performance.now(),
@@ -5305,9 +5310,6 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     animationCtx.clip();
     animationCtx.translate(state.panX, state.panY);
     animationCtx.scale(state.scale, state.scale);
-    animationCtx.beginPath();
-    animationCtx.rect(0, 0, SIZE, SIZE);
-    animationCtx.clip();
     drawAnimationsToContext(animationCtx, logicalRegion, now);
     animationCtx.restore();
   }
@@ -5396,10 +5398,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   }
   function forTiles(x, y, w, h, fn, create = true) {
     if (w <= 0 || h <= 0) return;
-    const x0 = Math.max(0, Math.floor(x / TILE)),
-      y0 = Math.max(0, Math.floor(y / TILE)),
-      x1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((x + w) / TILE) - 1),
-      y1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((y + h) / TILE) - 1);
+    const x0 = Math.floor(x / TILE),
+      y0 = Math.floor(y / TILE),
+      x1 = Math.ceil((x + w) / TILE) - 1,
+      y1 = Math.ceil((y + h) / TILE) - 1;
     if (x1 < x0 || y1 < y0) return;
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
@@ -5433,21 +5435,13 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function renderPlacedContentLayer(region = null) {
     const d = devicePixelRatio || 1,
       r = view.getBoundingClientRect(),
-      visible = region || {
-        x:Math.max(0, -state.panX / state.scale),
-        y:Math.max(0, -state.panY / state.scale),
-        w:Math.min(SIZE, (r.width - state.panX) / state.scale) - Math.max(0, -state.panX / state.scale),
-        h:Math.min(SIZE, (r.height - state.panY) / state.scale) - Math.max(0, -state.panY / state.scale),
-      };
+      visible = region || viewportRect();
     placedContentCtx.setTransform(d, 0, 0, d, 0, 0);
     placedContentCtx.clearRect(0, 0, r.width, r.height);
     if (visible.w <= 0 || visible.h <= 0) return;
     placedContentCtx.save();
     placedContentCtx.translate(state.panX, state.panY);
     placedContentCtx.scale(state.scale, state.scale);
-    placedContentCtx.beginPath();
-    placedContentCtx.rect(0, 0, SIZE, SIZE);
-    placedContentCtx.clip();
     drawImagesToContext(placedContentCtx, visible, state.widgetShadowEnabled);
     drawTextBoxesToContext(placedContentCtx, visible);
     placedContentCtx.restore();
@@ -5455,21 +5449,13 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function renderInkLayer(region = null) {
     const d = devicePixelRatio || 1,
       r = view.getBoundingClientRect(),
-      visible = region || {
-        x:Math.max(0, -state.panX / state.scale),
-        y:Math.max(0, -state.panY / state.scale),
-        w:Math.min(SIZE, (r.width - state.panX) / state.scale) - Math.max(0, -state.panX / state.scale),
-        h:Math.min(SIZE, (r.height - state.panY) / state.scale) - Math.max(0, -state.panY / state.scale),
-      };
+      visible = region || viewportRect();
     inkCtx.setTransform(d, 0, 0, d, 0, 0);
     inkCtx.clearRect(0, 0, r.width, r.height);
     if (visible.w <= 0 || visible.h <= 0) return;
     inkCtx.save();
     inkCtx.translate(state.panX, state.panY);
     inkCtx.scale(state.scale, state.scale);
-    inkCtx.beginPath();
-    inkCtx.rect(0, 0, SIZE, SIZE);
-    inkCtx.clip();
     forTiles(visible.x, visible.y, visible.w, visible.h, (canvas, tx, ty) => inkCtx.drawImage(canvas, tx * TILE, ty * TILE), false);
     drawSharpOverlays(inkCtx, visible);
     inkCtx.restore();
@@ -5485,21 +5471,15 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       r = view.getBoundingClientRect();
     ctx.setTransform(d, 0, 0, d, 0, 0);
     ctx.clearRect(0, 0, r.width, r.height);
-    ctx.fillStyle = state.paint.outside;
+    ctx.fillStyle = state.paint.paper;
     ctx.fillRect(0, 0, r.width, r.height);
     ctx.save();
     ctx.translate(state.panX, state.panY);
     ctx.scale(state.scale, state.scale);
-    ctx.fillStyle = state.paint.paper;
-    ctx.fillRect(0, 0, SIZE, SIZE);
-    const l = Math.max(0, -state.panX / state.scale),
-      t = Math.max(0, -state.panY / state.scale),
-      rr = Math.min(SIZE, (r.width - state.panX) / state.scale),
-      b = Math.min(SIZE, (r.height - state.panY) / state.scale);
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, SIZE, SIZE);
-    ctx.clip();
+    const l = -state.panX / state.scale,
+      t = -state.panY / state.scale,
+      rr = (r.width - state.panX) / state.scale,
+      b = (r.height - state.panY) / state.scale;
     if (state.gridVisible) {
       ctx.strokeStyle = state.paint.paperGrid;
       ctx.lineWidth = 1 / state.scale;
@@ -5514,10 +5494,6 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       }
       ctx.stroke();
     }
-    ctx.restore();
-    ctx.strokeStyle = state.paint.border;
-    ctx.lineWidth = 2 / state.scale;
-    ctx.strokeRect(0, 0, SIZE, SIZE);
     ctx.restore();
     renderPlacedContentLayer({ x:l, y:t, w:rr - l, h:b - t });
     renderInkLayer({ x:l, y:t, w:rr - l, h:b - t });
@@ -6350,8 +6326,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     if (!gesture || gesture.id !== event.pointerId || !state.textBoxes.includes(gesture.item)) return false;
     const item = gesture.item,
       scale = Math.max(.03, state.scale),
-      x = Math.max(0, Math.min(SIZE - item.w, gesture.startX + (event.clientX - gesture.startClientX) / scale)),
-      y = Math.max(0, Math.min(SIZE - item.h, gesture.startY + (event.clientY - gesture.startClientY) / scale));
+      x = worldCoordinate(gesture.startX + (event.clientX - gesture.startClientX) / scale, item.w),
+      y = worldCoordinate(gesture.startY + (event.clientY - gesture.startClientY) / scale, item.h);
     if (x === item.x && y === item.y) return true;
     item.x = x;
     item.y = y;
@@ -6621,9 +6597,6 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     interactionCtx.save();
     interactionCtx.translate(state.panX, state.panY);
     interactionCtx.scale(state.scale, state.scale);
-    interactionCtx.beginPath();
-    interactionCtx.rect(0, 0, SIZE, SIZE);
-    interactionCtx.clip();
     if (state.drawing?.preview) drawPreview(state.drawing.preview, interactionCtx);
     drawPointerPreview(interactionCtx);
     if (state.selection) drawSelection(state.selection, interactionCtx);
@@ -6750,10 +6723,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     else state.dirtyInkBounds.set(k, unionDirtyBounds(state.dirtyInkBounds.get(k), dirtyMaskLocalBox(tx, ty, box)));
   }
   function trackMergedImageAsDirty(item, box) {
-    const x0 = Math.max(0, Math.floor(box.x / TILE)),
-      y0 = Math.max(0, Math.floor(box.y / TILE)),
-      x1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((box.x + box.w) / TILE) - 1),
-      y1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((box.y + box.h) / TILE) - 1);
+    const x0 = Math.floor(box.x / TILE),
+      y0 = Math.floor(box.y / TILE),
+      x1 = Math.ceil((box.x + box.w) / TILE) - 1,
+      y1 = Math.ceil((box.y + box.h) / TILE) - 1;
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
         const canvas = dirtyMaskTile(tx, ty),
@@ -6881,8 +6854,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function keepTextEditorInsideCanvas(editor) {
     const logicalWidth = editor.widthCss / Math.max(0.03, state.scale),
       logicalHeight = editor.heightCss / Math.max(0.03, state.scale);
-    editor.x = Math.max(0, Math.min(SIZE - logicalWidth, editor.x));
-    editor.y = Math.max(0, Math.min(SIZE - logicalHeight, editor.y));
+    editor.x = worldCoordinate(editor.x, logicalWidth);
+    editor.y = worldCoordinate(editor.y, logicalHeight);
   }
   function keepTextEditorVisible(editor) {
     const viewport = textEditorViewportSize(),
@@ -6891,16 +6864,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       point = textEditorScreenPoint(editor),
       maxLeft = Math.max(inset, viewport.width - editor.widthCss - inset),
       maxTop = Math.max(inset, viewport.height - editor.heightCss - inset),
-      canvasLeft = state.panX,
-      canvasTop = state.panY,
-      canvasRight = state.panX + SIZE * scale - editor.widthCss,
-      canvasBottom = state.panY + SIZE * scale - editor.heightCss,
-      minLeft = Math.max(inset, canvasLeft),
-      minTop = Math.max(inset, canvasTop),
-      boundedMaxLeft = Math.min(maxLeft, canvasRight),
-      boundedMaxTop = Math.min(maxTop, canvasBottom),
-      left = boundedMaxLeft >= minLeft ? Math.min(boundedMaxLeft, Math.max(minLeft, point.left)) : Math.min(maxLeft, Math.max(inset, point.left)),
-      top = boundedMaxTop >= minTop ? Math.min(boundedMaxTop, Math.max(minTop, point.top)) : Math.min(maxTop, Math.max(inset, point.top));
+      left = Math.min(maxLeft, Math.max(inset, point.left)),
+      top = Math.min(maxTop, Math.max(inset, point.top));
     if (Math.abs(left - point.left) > 0.5) editor.x = (left - state.panX) / scale;
     if (Math.abs(top - point.top) > 0.5) editor.y = (top - state.panY) / scale;
     keepTextEditorInsideCanvas(editor);
@@ -7191,8 +7156,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         height = fitted.height;
       fontSize = fitted.fontSize;
       maxWidth = fitted.maxWidth;
-      x = Math.max(0, Math.min(SIZE - width, x));
-      y = Math.max(0, Math.min(SIZE - height, y));
+      x = worldCoordinate(x, width);
+      y = worldCoordinate(y, height);
       const
         box = { x, y, w: width, h: height },
         existingIndex = editor.sourceTextBoxId ? state.textBoxes.findIndex((item) => item.id === editor.sourceTextBoxId) : -1;
@@ -7540,14 +7505,15 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     return true;
   }
   function valid(p) {
-    return p.x >= 0 && p.x <= SIZE && p.y >= 0 && p.y <= SIZE;
+    return Number.isFinite(p?.x) && Number.isFinite(p?.y)
+      && Math.abs(p.x) <= WORLD_COORDINATE_LIMIT && Math.abs(p.y) <= WORLD_COORDINATE_LIMIT;
   }
   function mergeDirty(x, y, p = 10) {
     const a = {
-      x: Math.max(0, x - p),
-      y: Math.max(0, y - p),
-      w: Math.min(SIZE, x + p) - Math.max(0, x - p),
-      h: Math.min(SIZE, y + p) - Math.max(0, y - p),
+      x: x - p,
+      y: y - p,
+      w: p * 2,
+      h: p * 2,
     };
     if (!state.dirty) state.dirty = a;
     else {
@@ -7839,7 +7805,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function snapshotPreview() {
     const preview = offscreen(640, 426),
       q = preview.getContext("2d"),
-      bounds = unionLocalBounds(unionLocalBounds(unionLocalBounds(unionLocalBounds(visibleInkBounds({ x:0, y:0, w:SIZE, h:SIZE }), imageBounds()), textBoxBounds()), animationBounds()), widgetBounds());
+      bounds = exportInkBounds();
     q.fillStyle = state.paint.paper;
     q.fillRect(0, 0, preview.width, preview.height);
     if (!bounds) return preview;
@@ -7872,7 +7838,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     let bounds = null;
     for (const [tileKey, tileCanvas] of tiles) {
       const [tx, ty] = tileKey.split(",").map(Number),
-        ink = inkBox(tileCanvas, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE));
+        ink = inkBox(tileCanvas, TILE, TILE);
       if (!ink) continue;
       state.inkBounds.set(tileKey, ink);
       bounds = unionLocalBounds(bounds, { x: tx * TILE + ink.x, y: ty * TILE + ink.y, w: ink.w, h: ink.h });
@@ -8736,10 +8702,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       h = Math.abs(a.y - b.y) + pad * 2,
       changedBox = { x, y, w, h };
     invalidateSharpOverlays(changedBox);
-    const x0 = Math.max(0, Math.floor(x / TILE)),
-      y0 = Math.max(0, Math.floor(y / TILE)),
-      x1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.floor((x + w) / TILE)),
-      y1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.floor((y + h) / TILE));
+    const x0 = Math.floor(x / TILE),
+      y0 = Math.floor(y / TILE),
+      x1 = Math.floor((x + w) / TILE),
+      y1 = Math.floor((y + h) / TILE);
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
         const expanded = { x: tx * TILE - pad, y: ty * TILE - pad, w: TILE + pad * 2, h: TILE + pad * 2 };
@@ -8921,7 +8887,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       let current = tiles.get(k);
       if (current && state.inkBounds.get(k) === undefined) {
         const [tx, ty] = k.split(",").map(Number),
-          ink = inkBox(current, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE));
+          ink = inkBox(current, TILE, TILE);
         if (ink) state.inkBounds.set(k, ink);
         else {
           tiles.delete(k);
@@ -9057,7 +9023,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     if (selection.legacyActions) drawDraftActions(ctx, selection.box, size);
   }
   function captureSelection(points) {
-    const box = SELECT.polygonBounds(points, SIZE);
+    const box = SELECT.polygonBounds(points, WORLD_COORDINATE_BOUNDS);
     if (!box || points.length < 3 || SELECT.pathLength(points, state.scale) < 12 || box.w * state.scale < 4 || box.h * state.scale < 4) {
       setStatusKey("selectionTooSmall");
       return false;
@@ -9293,7 +9259,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       : SELECT.hitTest(selection.box, point, size, includeLegacyActions);
   }
   function beginSelectionLasso(event, point) {
-    state.selection = { phase: "lasso", points: [SELECT.clipPoint(point, SIZE)], box: null };
+    state.selection = { phase: "lasso", points: [SELECT.clipPoint(point, WORLD_COORDINATE_BOUNDS)], box: null };
     state.selectionGesture = { id: event.pointerId, hit: "lasso" };
     resetCanvasCursor();
     requestRender();
@@ -9324,11 +9290,11 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       const samples = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [],
         events = samples.length ? samples : [event],
         minimumDistance = 0.75 / Math.max(0.03, state.scale);
-      for (const sample of events) addLassoPoint(selection, SELECT.clipPoint(clientPoint(sample), SIZE), minimumDistance);
-      selection.box = SELECT.polygonBounds(selection.points, SIZE);
-    } else if (gesture.hit === "move") selection.box = SELECT.moveBox(gesture.startBox, point.x - gesture.startPoint.x, point.y - gesture.startPoint.y, SIZE);
-    else if (gesture.hit === "resize") selection.box = SELECT.resizeBox(gesture.startBox, point, 24 / state.scale, SIZE);
-    else if (gesture.hit === "width" || gesture.hit === "height") selection.box = SELECT.resizeBoxAxis(gesture.startBox, point, gesture.hit, 24 / state.scale, SIZE);
+      for (const sample of events) addLassoPoint(selection, SELECT.clipPoint(clientPoint(sample), WORLD_COORDINATE_BOUNDS), minimumDistance);
+      selection.box = SELECT.polygonBounds(selection.points, WORLD_COORDINATE_BOUNDS);
+    } else if (gesture.hit === "move") selection.box = SELECT.moveBox(gesture.startBox, point.x - gesture.startPoint.x, point.y - gesture.startPoint.y, WORLD_COORDINATE_BOUNDS);
+    else if (gesture.hit === "resize") selection.box = SELECT.resizeBox(gesture.startBox, point, 24 / state.scale, WORLD_COORDINATE_BOUNDS);
+    else if (gesture.hit === "width" || gesture.hit === "height") selection.box = SELECT.resizeBoxAxis(gesture.startBox, point, gesture.hit, 24 / state.scale, WORLD_COORDINATE_BOUNDS);
     if (selection.phase === "active") selection.path = selectionPathFor(selection);
     requestRender();
     return true;
@@ -9341,7 +9307,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     resetCanvasCursor();
     if (gesture.hit === "lasso") {
       if (selection && event.type !== "pointercancel") {
-        const point = SELECT.clipPoint(clientPoint(event), SIZE);
+        const point = SELECT.clipPoint(clientPoint(event), WORLD_COORDINATE_BOUNDS);
         addLassoPoint(selection, point, 0.5 / state.scale);
       }
       const points = selection?.points || [];
@@ -9868,11 +9834,11 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   }
   function viewportRect() {
     const r = view.getBoundingClientRect(),
-      x = Math.max(0, -state.panX / state.scale),
-      y = Math.max(0, -state.panY / state.scale),
-      right = Math.min(SIZE, (r.width - state.panX) / state.scale),
-      bottom = Math.min(SIZE, (r.height - state.panY) / state.scale);
-    return right > x && bottom > y ? { x, y, w: right - x, h: bottom - y } : null;
+      x = -state.panX / state.scale,
+      y = -state.panY / state.scale,
+      w = r.width / state.scale,
+      h = r.height / state.scale;
+    return w > 0 && h > 0 ? { x, y, w, h } : null;
   }
   function visibleInkBounds(visible) {
     let bounds = null;
@@ -9884,7 +9850,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       let ink = state.inkBounds.get(k);
       if (ink === undefined) {
         const c = tiles.get(k);
-        ink = c ? inkBox(c, Math.min(TILE, SIZE - tx * TILE), Math.min(TILE, SIZE - ty * TILE)) : null;
+        ink = c ? inkBox(c, TILE, TILE) : null;
         state.inkBounds.set(k, ink);
       }
       if (!ink) continue;
@@ -10164,7 +10130,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     const epsilon = 0.001;
     return inner.x >= outer.x - epsilon && inner.y >= outer.y - epsilon && inner.x + inner.w <= outer.x + outer.w + epsilon && inner.y + inner.h <= outer.y + outer.h + epsilon;
   }
-  const n = (v, min = 0, max = SIZE) => Number.isFinite(v) && v >= min && v <= max;
+  const n = (v, min = -WORLD_COORDINATE_LIMIT, max = WORLD_COORDINATE_LIMIT) => Number.isFinite(v) && v >= min && v <= max;
   function matchedFontSize(value) {
     const screenReadable = 42 / Math.max(0.03, state.scale);
     return Math.max(24, Math.min(650, Math.max(+value || 180, screenReadable)));
@@ -10191,8 +10157,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     const next = { ...command },
       preferredY = Math.max(capture.y, Math.min(capture.y + capture.h - Math.min(height, capture.h), latestBox.y + latestBox.h + padding));
     next.x = Math.max(capture.x, Math.min(capture.x + capture.w - Math.min(width, capture.w), latestBox.x));
-    next.y = Math.max(0, Math.min(SIZE - height, preferredY));
-    if (textTool) next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE - next.x));
+    next.y = worldCoordinate(preferredY, height);
+    if (textTool) next.maxWidth = Math.max(next.fontSize, Math.min(next.maxWidth, SIZE));
     return [next];
   }
   function widgetGeometryForViewport(visibleRect) {
@@ -10225,8 +10191,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     h = Math.max(200, h);
     w = Math.min(w, SIZE);
     h = Math.min(h, SIZE);
-    x = Math.max(0, Math.min(SIZE - w, x));
-    y = Math.max(0, Math.min(SIZE - h, y));
+    x = worldCoordinate(x, w);
+    y = worldCoordinate(y, h);
     return w >= 300 && h >= 200 ? { x, y, w, h } : null;
   }
   function validWidgetRefreshSeconds(value) {
@@ -10238,7 +10204,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       generatedImageSlots = 1,
       widgetSlots = widgetEditTarget ? 1 : Math.max(0, MAX_VISIBLE_WIDGETS - state.widgets.length),
       widgetPluginIds = new Set(enabledPluginDescriptors().map((plugin) => plugin.id));
-    const acceptedTools = ["write_text", "handwrite_text", "draw_formula", "plot_function", "generate_image", "draw", "erase"];
+    const acceptedTools = ["write_text", "handwrite_text", "math_work", "draw_formula", "plot_function", "generate_image", "draw", "erase"];
     if (widgetPluginIds.size) acceptedTools.push("html_widget");
     if (widgetPluginIds.has("flowchart")) acceptedTools.push("diagram_source");
     const validated = cmds
@@ -10251,32 +10217,43 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
           if (!n(c.x) || !n(c.y) || typeof c.text !== "string" || !Number.isFinite(c.maxWidth)) return null;
           c.text = c.text.slice(0, AI_TEXT_MAX_LENGTH);
           c.fontSize = matchedTextFontSize(c.fontSize, c.text);
-          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
+          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE, c.maxWidth));
           c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.35));
           c.color = aiColor;
           if (c.maxWidth < c.fontSize) return null;
-          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
         }
         if (c.tool === "handwrite_text") {
           if (!n(c.x) || !n(c.y) || typeof c.text !== "string" || !Number.isFinite(c.maxWidth)) return null;
           c.text = c.text.slice(0, AI_TEXT_MAX_LENGTH);
           c.fontSize = matchedFontSize(c.fontSize);
-          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE - c.x, c.maxWidth));
+          c.maxWidth = Math.max(c.fontSize, Math.min(SIZE, c.maxWidth));
           c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.3));
           c.color = aiColor;
           if (c.maxWidth < c.fontSize) return null;
-          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * c.lineHeight * 2));
+        }
+        if (c.tool === "math_work") {
+          if (!n(c.x) || !n(c.y) || !Array.isArray(c.steps) || !c.steps.length || c.steps.length > 8) return null;
+          const steps = c.steps.map((step) => {
+            const equation = typeof step?.equation === "string" ? step.equation.trim().slice(0, 180) : "",
+              operation = typeof step?.operation === "string" ? step.operation.trim().slice(0, 80) : "";
+            if (!equation || equation.split("=").length !== 2) return null;
+            return { equation, ...(operation ? { operation } : {}) };
+          });
+          if (steps.some((step) => !step)) return null;
+          c.steps = steps;
+          c.fontSize = matchedFontSize(c.fontSize);
+          c.lineHeight = Math.max(1, Math.min(2.2, +c.lineHeight || 1.25));
+          c.color = aiColor;
         }
         if (c.tool === "draw_formula") {
           if (!n(c.x) || !n(c.y) || typeof c.latex !== "string") return null;
           c.latex = c.latex.slice(0, 500);
           c.fontSize = matchedFontSize(c.fontSize);
           c.color = aiColor;
-          const estimatedWidth = Math.min(5000, Math.max(c.fontSize, c.latex.length * c.fontSize * 0.72));
-          c.x = Math.min(c.x, Math.max(0, SIZE - estimatedWidth));
-          c.y = Math.min(c.y, Math.max(0, SIZE - c.fontSize * 1.8));
+          c.x = worldCoordinate(c.x, Math.min(5000, Math.max(c.fontSize, c.latex.length * c.fontSize * 0.72)));
+          c.y = worldCoordinate(c.y, c.fontSize * 1.8);
         }
-        if (c.tool === "plot_function" && (!n(c.x) || !n(c.y) || !n(c.w, 240, 6000) || !n(c.h, 180, 6000) || c.w * c.h > 8000000 || Math.max(c.w / c.h, c.h / c.w) > 6 || 12000000 < plotPixels + c.w * c.h || c.x + c.w > SIZE || c.y + c.h > SIZE || typeof c.expression !== "string" || c.expression.length > 180)) return null;
+        if (c.tool === "plot_function" && (!n(c.x) || !n(c.y) || !n(c.w, 240, 6000) || !n(c.h, 180, 6000) || c.w * c.h > 8000000 || Math.max(c.w / c.h, c.h / c.w) > 6 || 12000000 < plotPixels + c.w * c.h || typeof c.expression !== "string" || c.expression.length > 180)) return null;
         if (c.tool === "plot_function") {
           c.expression = normalizePlotExpression(c.expression);
           try {
@@ -10285,15 +10262,19 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
             return null;
           }
           c.color = aiColor;
+          c.x = worldCoordinate(c.x, c.w);
+          c.y = worldCoordinate(c.y, c.h);
           plotPixels += c.w * c.h;
         }
         if (c.tool === "generate_image") {
-          if (generatedImageSlots <= 0 || !n(c.x) || !n(c.y) || !n(c.w, 256, 6000) || !n(c.h, 256, 6000) || c.w * c.h > 12000000 || Math.max(c.w / c.h, c.h / c.w) > 3 || c.x + c.w > SIZE || c.y + c.h > SIZE || typeof c.prompt !== "string" || !c.prompt.trim() || c.prompt.length > 2000) return null;
+          if (generatedImageSlots <= 0 || !n(c.x) || !n(c.y) || !n(c.w, 256, 6000) || !n(c.h, 256, 6000) || c.w * c.h > 12000000 || Math.max(c.w / c.h, c.h / c.w) > 3 || typeof c.prompt !== "string" || !c.prompt.trim() || c.prompt.length > 2000) return null;
           c.prompt = c.prompt.trim();
+          c.x = worldCoordinate(c.x, c.w);
+          c.y = worldCoordinate(c.y, c.h);
           generatedImageSlots--;
         }
         if (c.tool === "draw") {
-          const normalized = DRAW?.normalize(c, SIZE);
+          const normalized = DRAW?.normalize(c, { maxExtent:SIZE, coordinateLimit:WORLD_COORDINATE_LIMIT });
           if (!normalized) return null;
           c = { ...normalized, color:aiColor };
         }
@@ -10356,7 +10337,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
             if (Math.max(...xs) - Math.min(...xs) > 3000 || Math.max(...ys) - Math.min(...ys) > 3000) return null;
           } else {
             c.mode = "rect";
-            if (!n(c.x) || !n(c.y) || !n(c.w, 1, 2000) || !n(c.h, 1, 2000) || c.x + c.w > SIZE || c.y + c.h > SIZE) return null;
+            if (!n(c.x) || !n(c.y) || !n(c.w, 1, 2000) || !n(c.h, 1, 2000) || c.x + c.w > WORLD_COORDINATE_LIMIT || c.y + c.h > WORLD_COORDINATE_LIMIT) return null;
           }
         }
         return c;
@@ -10423,7 +10404,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         } else if (c.tool === "generate_image") {
           image = await generatedImageDraft(c);
         } else if (c.tool === "animate_scene") {
-          pendingCommand = ANIMATION.normalize(c, SIZE);
+          pendingCommand = ANIMATION.normalize(c, { coordinateLimit:WORLD_COORDINATE_LIMIT });
           image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
         } else if (c.tool === "draw") {
           const made = DRAW.render(c, offscreen, c.color);
@@ -10433,8 +10414,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         }
         if (image) {
           checkAI(revision, run);
-          x = Math.max(0, Math.min(x, SIZE - Math.min(image.logicalWidth || image.width, SIZE)));
-          y = Math.max(0, Math.min(y, SIZE - Math.min(image.logicalHeight || image.height, SIZE)));
+          x = worldCoordinate(x, image.logicalWidth || image.width);
+          y = worldCoordinate(y, image.logicalHeight || image.height);
           const accepted = await startPending(image, x, y, revision, meta, pendingCommand);
           if (accepted === AI_CANCELLED) throw Error(AI_CANCELLED);
           if (accepted === AI_SUPERSEDED) throw Error(AI_SUPERSEDED);
@@ -10461,11 +10442,12 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       pendingCommand = c;
     if (c.tool === "write_text") image = textImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, state.aiFont, AI_TEXT_MAX_LENGTH, sharpRenderRatio());
     else if (c.tool === "handwrite_text") image = await handwritingImage(c.text, c.fontSize, c.color, c.maxWidth, c.lineHeight, sharpRenderRatio());
+    else if (c.tool === "math_work") image = await mathWorkImage(c.steps, c.fontSize, c.color, c.lineHeight, sharpRenderRatio());
     else if (c.tool === "draw_formula") image = await formulaImage(c.latex, c.fontSize, c.color);
     else if (c.tool === "plot_function") image = plot(c);
     else if (c.tool === "generate_image") image = await generatedImageDraft(c);
     else if (c.tool === "animate_scene") {
-      pendingCommand = ANIMATION.normalize(c, SIZE);
+      pendingCommand = ANIMATION.normalize(c, { coordinateLimit:WORLD_COORDINATE_LIMIT });
       image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
     } else if (c.tool === "draw") {
       const made = DRAW.render(c, offscreen, c.color);
@@ -10484,8 +10466,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       copyText: copyTextForCommand(c),
       animationScene: c.tool === "animate_scene" ? pendingCommand : null,
       animationPlayback: c.tool === "animate_scene" ? createAnimationPlayback() : null,
-      x: Math.max(0, Math.min(x, SIZE - Math.min(logicalWidth, SIZE))),
-      y: Math.max(0, Math.min(y, SIZE - Math.min(logicalHeight, SIZE))),
+      x: worldCoordinate(x, logicalWidth),
+      y: worldCoordinate(y, logicalHeight),
       layoutWidth: logicalWidth,
       layoutHeight: logicalHeight,
     };
@@ -10494,14 +10476,14 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     const gap = Math.max(40, 14 / Math.max(0.03, state.scale)),
       visible = viewportRect() || { x:0, y:0, w:SIZE, h:SIZE },
       flow = items
-        .filter((item) => ["write_text", "handwrite_text", "draw_formula"].includes(item.command.tool))
+        .filter((item) => ["write_text", "handwrite_text", "math_work", "draw_formula"].includes(item.command.tool))
         .sort((a, b) => a.y - b.y || a.x - b.x),
       placed = [],
       fixed = obstacles
         .filter((box) => box && [box.x, box.y, box.w, box.h].every(Number.isFinite) && box.w > 0 && box.h > 0)
         .map((box) => ({ ...box }))
         .concat(items
-          .filter((item) => !["write_text", "handwrite_text", "draw_formula", "draw"].includes(item.command.tool))
+          .filter((item) => !["write_text", "handwrite_text", "math_work", "draw_formula", "draw"].includes(item.command.tool))
           .map((item) => item.erase ? item.bounds : { x:item.x, y:item.y, w:item.layoutWidth, h:item.layoutHeight }));
     const intersects = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x)
       && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
@@ -10618,6 +10600,103 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     image.revealRowHeight = naturalHeight;
     image.naturalWidth = image.logicalWidth = naturalWidth;
     image.naturalHeight = image.logicalHeight = naturalHeight;
+    return image;
+  }
+  function mathWorkGeometry(rows, fontSize) {
+    const padding = Math.max(8, fontSize * .2),
+      columnGap = Math.max(10, fontSize * .32),
+      rowGap = Math.max(8, fontSize * .18),
+      stepGap = Math.max(12, fontSize * .3),
+      leftWidth = Math.max(fontSize, ...rows.map((row) => row.leftWidth || 0)),
+      equalsWidth = Math.max(fontSize * .5, ...rows.map((row) => row.equalsWidth || 0)),
+      rightWidth = Math.max(fontSize, ...rows.map((row) => Math.max(row.rightWidth || 0, row.operationWidth || 0))),
+      equalsX = padding + leftWidth + columnGap,
+      rightX = equalsX + equalsWidth + columnGap;
+    let y = padding;
+    const placedRows = rows.map((row) => {
+      const equationHeight = Math.max(row.height || fontSize, fontSize),
+        operationWidth = row.operationWidth || 0,
+        operationHeight = row.operationHeight || 0,
+        placed = {
+          ...row,
+          y,
+          leftX:equalsX - columnGap - (row.leftWidth || 0),
+          equalsX,
+          rightX,
+          operationWidth,
+          leftOperationX:equalsX - columnGap - operationWidth,
+          rightOperationX:rightX,
+          operationY:y + equationHeight + rowGap,
+        };
+      if (operationWidth > 0) {
+        placed.dividerY = placed.operationY + operationHeight + rowGap * .45;
+        placed.leftDivider = { x1:Math.min(placed.leftX, placed.leftOperationX), x2:equalsX - columnGap * .45 };
+        placed.rightDivider = { x1:rightX, x2:rightX + Math.max(row.rightWidth || 0, operationWidth) };
+        y = placed.dividerY + stepGap;
+      } else y += equationHeight + stepGap;
+      return placed;
+    });
+    return {
+      rows:placedRows,
+      width:Math.ceil(rightX + rightWidth + padding),
+      height:Math.ceil(y + padding),
+    };
+  }
+  async function mathWorkImage(steps, fontSize, color, lineHeight = 1.25, pixelRatio = 1) {
+    const ink = color || "#2563eb",
+      component = async (text, size = fontSize) => handwritingImage(
+        text,
+        size,
+        ink,
+        Math.max(size * 2, Array.from(text).length * size * .9),
+        lineHeight,
+        pixelRatio,
+      ),
+      prepared = await Promise.all(steps.map(async (step) => {
+        const [leftText, rightText] = step.equation.split("=").map((part) => part.trim()),
+          [left, equals, right, operation] = await Promise.all([
+            component(leftText),
+            component("="),
+            component(rightText),
+            step.operation ? component(step.operation, fontSize * .82) : null,
+          ]);
+        return { left, equals, right, operation };
+      })),
+      geometry = mathWorkGeometry(prepared.map((row) => ({
+        leftWidth:row.left.logicalWidth,
+        equalsWidth:row.equals.logicalWidth,
+        rightWidth:row.right.logicalWidth,
+        height:Math.max(row.left.logicalHeight, row.equals.logicalHeight, row.right.logicalHeight),
+        operationWidth:row.operation?.logicalWidth || 0,
+        operationHeight:row.operation?.logicalHeight || 0,
+      })), fontSize),
+      rasterScale = rasterScaleFor(geometry.width, geometry.height, pixelRatio),
+      image = offscreen(Math.max(1, Math.ceil(geometry.width * rasterScale)), Math.max(1, Math.ceil(geometry.height * rasterScale))),
+      q = image.getContext("2d"),
+      draw = (source, x, y) => source && q.drawImage(source, x, y, source.logicalWidth, source.logicalHeight);
+    q.scale(rasterScale, rasterScale);
+    q.strokeStyle = ink;
+    q.lineCap = "round";
+    q.lineWidth = Math.max(2, fontSize / 32);
+    geometry.rows.forEach((row, index) => {
+      const source = prepared[index];
+      draw(source.left, row.leftX, row.y);
+      draw(source.equals, row.equalsX, row.y);
+      draw(source.right, row.rightX, row.y);
+      if (!source.operation) return;
+      draw(source.operation, row.leftOperationX, row.operationY);
+      draw(source.operation, row.rightOperationX, row.operationY);
+      q.beginPath();
+      q.moveTo(row.leftDivider.x1, row.dividerY);
+      q.lineTo(row.leftDivider.x2, row.dividerY);
+      q.moveTo(row.rightDivider.x1, row.dividerY);
+      q.lineTo(row.rightDivider.x2, row.dividerY);
+      q.stroke();
+    });
+    image.revealRows = geometry.rows.map(() => geometry.width);
+    image.revealRowHeight = geometry.height / Math.max(1, geometry.rows.length);
+    image.naturalWidth = image.logicalWidth = geometry.width;
+    image.naturalHeight = image.logicalHeight = geometry.height;
     return image;
   }
   async function generatedImageDraft(command) {
@@ -10879,10 +10958,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     blitSized(im, x, y, im.width * scaleX, im.height * scaleY);
   }
   function blitSized(im, x, y, w, h) {
-    const x0 = Math.max(0, Math.floor(x / TILE)),
-      y0 = Math.max(0, Math.floor(y / TILE)),
-      x1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((x + w) / TILE) - 1),
-      y1 = Math.min(Math.ceil(SIZE / TILE) - 1, Math.ceil((y + h) / TILE) - 1);
+    const x0 = Math.floor(x / TILE),
+      y0 = Math.floor(y / TILE),
+      x1 = Math.ceil((x + w) / TILE) - 1,
+      y1 = Math.ceil((y + h) / TILE) - 1;
     for (let ty = y0; ty <= y1; ty++)
       for (let tx = x0; tx <= x1; tx++) {
         recordBefore(tx, ty);
@@ -10908,6 +10987,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     });
   }
   function copyTextForCommand(command) {
+    if (command?.tool === "math_work") return command.steps.map((step) => `${step.equation}${step.operation ? `\n  ${step.operation} on both sides` : ""}`).join("\n");
     if (["write_text", "handwrite_text"].includes(command?.tool) && typeof command.text === "string") return command.text;
     if (command?.tool === "draw_formula" && typeof command.latex === "string") return command.latex;
     if (command?.tool === "generate_image" && typeof command.prompt === "string") return command.prompt;
@@ -11105,9 +11185,9 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
   function draftActionPoints(box, s, includeCopy = false, single = false) {
     const prefix = single ? "" : "item-",
       radius = s * 0.54,
-      clampX = (value) => Math.max(radius, Math.min(SIZE - radius, value)),
+      clampX = (value) => worldCoordinate(value),
       aboveY = box.y - s * 0.74,
-      actionY = aboveY - radius >= 0 ? aboveY : Math.min(SIZE - radius, box.y + radius + s * 0.18),
+      actionY = aboveY,
       actions = {
         [prefix + "cancel"]: { x: clampX(box.x - s * 0.62), y: actionY },
         [prefix + "accept"]: { x: clampX(box.x + box.w + s * 0.62), y: actionY },
@@ -11171,9 +11251,9 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     context.font = `700 ${fontSize}px system-ui, sans-serif`;
     const width = context.measureText(label).width + paddingX * 2,
       height = fontSize + paddingY * 2,
-      x = Math.max(0, Math.min(SIZE - width, box.x + box.w / 2 - width / 2)),
+      x = worldCoordinate(box.x + box.w / 2 - width / 2, width),
       above = box.y - s * 1.15 - height,
-      y = above >= 0 ? above : Math.min(SIZE - height, box.y + s * 0.95);
+      y = above;
     context.fillStyle = "#111827e8";
     context.fillRect(x, y, width, height);
     context.fillStyle = "#fff";
@@ -11746,8 +11826,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       if (g.hit === "batch-move") {
         if (g.armed) {
           const box = g.batchStartBounds,
-            dx = Math.max(-box.x, Math.min(SIZE - box.x - box.w, q.x - g.startX)),
-            dy = Math.max(-box.y, Math.min(SIZE - box.y - box.h, q.y - g.startY));
+            dx = worldCoordinate(box.x + q.x - g.startX, box.w) - box.x,
+            dy = worldCoordinate(box.y + q.y - g.startY, box.h) - box.y;
           p.items.forEach((item, index) => {
             item.x = g.itemStarts[index].x + dx;
             item.y = g.itemStarts[index].y + dy;
@@ -11758,7 +11838,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         return true;
       }
       if (g.hit === "batch-resize") {
-        if (g.armed) resizePendingBatchItems(p.items, g.batchStartBounds, g.itemStarts, q, 40, SIZE);
+        if (g.armed) resizePendingBatchItems(p.items, g.batchStartBounds, g.itemStarts, q, 40, WORLD_COORDINATE_BOUNDS);
         g.last = q;
         if (g.armed) render();
         return true;
@@ -11767,32 +11847,32 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
         box = item ? pendingItemBounds(item) : null;
       if (!item || !box) return false;
       if (g.hit === "move" && g.armed) {
-        item.x = Math.max(0, Math.min(SIZE - box.w, item.x + q.x - g.last.x));
-        item.y = Math.max(0, Math.min(SIZE - box.h, item.y + q.y - g.last.y));
+        item.x = worldCoordinate(item.x + q.x - g.last.x, box.w);
+        item.y = worldCoordinate(item.y + q.y - g.last.y, box.h);
       } else if (g.hit === "resize" && g.armed) {
         const baseWidth = box.w / item.scaleX,
           baseHeight = box.h / item.scaleY,
           minimum = Math.max(40 / baseWidth, 40 / baseHeight),
-          maximum = Math.min((SIZE - item.x) / baseWidth, (SIZE - item.y) / baseHeight),
+          maximum = Math.min(SIZE / baseWidth, SIZE / baseHeight),
           next = Math.max(minimum, Math.min(maximum, Math.max((q.x - item.x) / baseWidth, (q.y - item.y) / baseHeight)));
         item.scaleX = item.scaleY = next;
       } else if (g.hit === "width" && g.armed) {
         if (item.textCommand) {
-          const layoutWidth=Math.max(item.textCommand.fontSize,Math.min((SIZE-item.x)/item.scaleX,(q.x-item.x)/item.scaleX));
+          const layoutWidth=Math.max(item.textCommand.fontSize,Math.min(SIZE/item.scaleX,(q.x-item.x)/item.scaleX));
           item.layoutWidth=layoutWidth;
           item.image=textImage(item.textCommand.text,item.textCommand.fontSize,item.textCommand.color,item.layoutWidth,item.textCommand.lineHeight);
           if(!item.heightLocked)item.layoutHeight=item.image.logicalHeight||item.image.height;
         } else {
           const baseWidth = box.w / item.scaleX;
-          item.scaleX = Math.max(40 / baseWidth, Math.min((SIZE - item.x) / baseWidth, (q.x - item.x) / baseWidth));
+          item.scaleX = Math.max(40 / baseWidth, Math.min(SIZE / baseWidth, (q.x - item.x) / baseWidth));
         }
       } else if (g.hit === "height" && g.armed) {
         if (item.textCommand) {
-          item.layoutHeight = Math.max(item.textCommand.fontSize * item.textCommand.lineHeight + 8, Math.min((SIZE - item.y) / item.scaleY, (q.y - item.y) / item.scaleY));
+          item.layoutHeight = Math.max(item.textCommand.fontSize * item.textCommand.lineHeight + 8, Math.min(SIZE / item.scaleY, (q.y - item.y) / item.scaleY));
           item.heightLocked = true;
         } else {
           const baseHeight = box.h / item.scaleY;
-          item.scaleY = Math.max(40 / baseHeight, Math.min((SIZE - item.y) / baseHeight, (q.y - item.y) / baseHeight));
+          item.scaleY = Math.max(40 / baseHeight, Math.min(SIZE / baseHeight, (q.y - item.y) / baseHeight));
         }
       }
       g.last = q;
@@ -11801,33 +11881,33 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     }
     if (g.hit === "move" && g.armed) {
       const b = draftBounds(p);
-      p.x = Math.max(0, Math.min(SIZE - b.w, p.x + q.x - g.last.x));
-      p.y = Math.max(0, Math.min(SIZE - b.h, p.y + q.y - g.last.y));
+      p.x = worldCoordinate(p.x + q.x - g.last.x, b.w);
+      p.y = worldCoordinate(p.y + q.y - g.last.y, b.h);
     } else if (g.hit === "resize" && g.armed) {
       const minimum = 40,
         baseWidth = p.textCommand ? p.layoutWidth : p.image.logicalWidth || p.image.width,
         baseHeight = p.textCommand ? p.layoutHeight : p.image.logicalHeight || p.image.height,
         ratio = Math.max(minimum / baseWidth, minimum / baseHeight),
-        maxScale = Math.max(ratio, Math.min((SIZE - p.x) / baseWidth, (SIZE - p.y) / baseHeight)),
+        maxScale = Math.max(ratio, Math.min(SIZE / baseWidth, SIZE / baseHeight)),
         next = Math.max(ratio, Math.min(maxScale, Math.max((q.x - p.x) / baseWidth, (q.y - p.y) / baseHeight)));
       p.scaleX = p.scaleY = next;
     } else if (g.hit === "width" && g.armed) {
       if (p.textCommand) {
-        const layoutWidth=Math.max(p.textCommand.fontSize,Math.min((SIZE-p.x)/p.scaleX,(q.x-p.x)/p.scaleX));
+        const layoutWidth=Math.max(p.textCommand.fontSize,Math.min(SIZE/p.scaleX,(q.x-p.x)/p.scaleX));
         p.layoutWidth=layoutWidth;
         p.image=textImage(p.textCommand.text,p.textCommand.fontSize,p.textCommand.color,p.layoutWidth,p.textCommand.lineHeight);
         if(!p.heightLocked)p.layoutHeight=p.image.logicalHeight||p.image.height;
       } else {
         const baseWidth = draftBounds(p).w / p.scaleX;
-        p.scaleX = Math.max(40 / baseWidth, Math.min((SIZE - p.x) / baseWidth, (q.x - p.x) / baseWidth));
+        p.scaleX = Math.max(40 / baseWidth, Math.min(SIZE / baseWidth, (q.x - p.x) / baseWidth));
       }
     } else if (g.hit === "height" && g.armed) {
       if (p.textCommand) {
-        p.layoutHeight = Math.max(p.textCommand.fontSize * p.textCommand.lineHeight + 8, Math.min((SIZE - p.y) / p.scaleY, (q.y - p.y) / p.scaleY));
+        p.layoutHeight = Math.max(p.textCommand.fontSize * p.textCommand.lineHeight + 8, Math.min(SIZE / p.scaleY, (q.y - p.y) / p.scaleY));
         p.heightLocked = true;
       } else {
         const baseHeight = draftBounds(p).h / p.scaleY;
-        p.scaleY = Math.max(40 / baseHeight, Math.min((SIZE - p.y) / baseHeight, (q.y - p.y) / baseHeight));
+        p.scaleY = Math.max(40 / baseHeight, Math.min(SIZE / baseHeight, (q.y - p.y) / baseHeight));
       }
     }
     g.last = q;
@@ -11894,10 +11974,10 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       ys = c.points.map((p) => p[1]),
       pad = c.size / 2;
     return {
-      x: Math.max(0, Math.min(...xs) - pad),
-      y: Math.max(0, Math.min(...ys) - pad),
-      w: Math.min(SIZE, Math.max(...xs) + pad) - Math.max(0, Math.min(...xs) - pad),
-      h: Math.min(SIZE, Math.max(...ys) + pad) - Math.max(0, Math.min(...ys) - pad),
+      x: Math.min(...xs) - pad,
+      y: Math.min(...ys) - pad,
+      w: Math.max(...xs) - Math.min(...xs) + pad * 2,
+      h: Math.max(...ys) - Math.min(...ys) + pad * 2,
     };
   }
   async function previewErase(c, revision) {
@@ -12295,17 +12375,17 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     if (gesture.hit === "resize") {
       const ratio = gesture.start.w / gesture.start.h,
         targetWidth = Math.max(80, Math.max(point.x - gesture.start.x, (point.y - gesture.start.y) * ratio)),
-        width = Math.min(SIZE - gesture.start.x, targetWidth),
-        height = Math.min(SIZE - gesture.start.y, width / ratio);
+        width = Math.min(SIZE, targetWidth),
+        height = Math.min(SIZE, width / ratio);
       animation.w = width;
       animation.h = height;
     } else if (gesture.hit === "width") {
-      animation.w = Math.max(80, Math.min(SIZE - gesture.start.x, point.x - gesture.start.x));
+      animation.w = Math.max(80, Math.min(SIZE, point.x - gesture.start.x));
     } else if (gesture.hit === "height") {
-      animation.h = Math.max(80, Math.min(SIZE - gesture.start.y, point.y - gesture.start.y));
+      animation.h = Math.max(80, Math.min(SIZE, point.y - gesture.start.y));
     } else {
-      animation.x = Math.max(0, Math.min(SIZE - animation.w, gesture.start.x + dx));
-      animation.y = Math.max(0, Math.min(SIZE - animation.h, gesture.start.y + dy));
+      animation.x = worldCoordinate(gesture.start.x + dx, animation.w);
+      animation.y = worldCoordinate(gesture.start.y + dy, animation.h);
     }
     gesture.changed ||= Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01;
     requestAnimationLayerRender();
@@ -12371,7 +12451,7 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       const source = packed.sourceRect;
       return {
         image:packed.atlasImage,
-        note:`${reason}. The attached image maps to global logical rectangle x=${Math.round(source.x)}, y=${Math.round(source.y)}, width=${Math.round(source.w)}, height=${Math.round(source.h)} on a ${SIZE} by ${SIZE} canvas. Use those global coordinates for canvas_commands.`,
+        note:`${reason}. The attached image maps to global logical rectangle x=${Math.round(source.x)}, y=${Math.round(source.y)}, width=${Math.round(source.w)}, height=${Math.round(source.h)} on an edgeless canvas. Coordinates may be positive or negative. Use those global coordinates for canvas_commands.`,
       };
     } catch (error) {
       debug("voice-context-error", { error:String(error?.message || error).slice(0, 240) });
@@ -12475,6 +12555,66 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     };
   }
 
+  function voiceMathOperation(value) {
+    const source = String(value || "").trim().replace(/\s+/g, " ");
+    if (!source) return "";
+    const compact = source.replace(/\s+/g, ""),
+      subtract = /^(?:subtract|minus)\s+(.+)$/i.exec(source),
+      add = /^(?:add|plus)\s+(.+)$/i.exec(source),
+      divide = /^(?:divide\s+by|divided\s+by)\s+(.+)$/i.exec(source),
+      multiply = /^(?:multiply\s+by|times)\s+(.+)$/i.exec(source);
+    if (subtract) return `\u2212${subtract[1].trim()}`;
+    if (add) return `+${add[1].trim()}`;
+    if (divide) return `\u00f7${divide[1].trim()}`;
+    if (multiply) return `\u00d7${multiply[1].trim()}`;
+    if (/^[-\u2212]/.test(compact)) return `\u2212${compact.slice(1)}`;
+    if (/^(?:\/|\u00f7)/.test(compact)) return `\u00f7${compact.slice(1)}`;
+    if (/^(?:\*|\u00d7)/.test(compact)) return `\u00d7${compact.slice(1)}`;
+    return compact;
+  }
+
+  function voiceMathWorkCommand(input, visible, scale = 1) {
+    if (!input || !visible || !Array.isArray(input.steps)) return null;
+    const steps = input.steps.slice(0, 8).map((step) => {
+      const equation = String(step?.equation || "").trim().replace(/\s*=\s*/g, " = ").replace(/\s+/g, " "),
+        operation = voiceMathOperation(step?.operation);
+      return equation && equation.split("=").length === 2 ? { equation, ...(operation ? { operation } : {}) } : null;
+    }).filter(Boolean);
+    if (!steps.length) return null;
+    const safeScale = Math.max(.03, Math.min(2, Number(scale) || 1)),
+      fontSize = Math.max(48, Math.min(650, Math.max(Number(input.fontSize) || 180, 42 / safeScale))),
+      padding = 24 / safeScale,
+      gap = Math.max(28 / safeScale, fontSize * .65),
+      longestEquation = Math.max(...steps.map((step) => Array.from(step.equation).length)),
+      estimatedWidth = Math.min(visible.w - padding * 2, Math.max(fontSize * 5, longestEquation * fontSize * .62)),
+      estimatedHeight = steps.reduce((height, step) => height + fontSize * (step.operation ? 2.05 : 1.2), padding * 2),
+      target = input.target && [input.target.x, input.target.y, input.target.w, input.target.h].every(Number.isFinite) ? input.target : null,
+      placement = ["above", "below", "left", "right", "inside", "auto"].includes(input.placement) ? input.placement : "auto",
+      requestedX = Number(input.x),
+      requestedY = Number(input.y);
+    let x = Number.isFinite(requestedX) ? requestedX : visible.x + padding,
+      y = Number.isFinite(requestedY) ? requestedY : visible.y + padding;
+    if ((!Number.isFinite(requestedX) || !Number.isFinite(requestedY)) && target) {
+      const chosen = placement === "auto"
+        ? target.y + target.h + gap + estimatedHeight <= visible.y + visible.h ? "below" : "right"
+        : placement;
+      if (chosen === "below") { x = target.x; y = target.y + target.h + gap; }
+      else if (chosen === "above") { x = target.x; y = target.y - estimatedHeight - gap; }
+      else if (chosen === "right") { x = target.x + target.w + gap; y = target.y; }
+      else if (chosen === "left") { x = target.x - estimatedWidth - gap; y = target.y; }
+      else { x = target.x + gap; y = target.y + gap; }
+    }
+    return {
+      ...input,
+      tool:"math_work",
+      steps,
+      x:Math.max(visible.x + padding, Math.min(visible.x + visible.w - estimatedWidth - padding, x)),
+      y:Math.max(visible.y + padding, Math.min(visible.y + visible.h - estimatedHeight - padding, y)),
+      fontSize,
+      lineHeight:Math.max(1, Math.min(2.2, Number(input.lineHeight) || 1.25)),
+    };
+  }
+
   function voiceCanvasObstacleBoxes(visible) {
     const boxes = [visibleInkBounds(visible), imageBounds(visible), textBoxBounds(visible), animationBounds(visible)].filter(Boolean);
     for (const widget of state.widgets || []) {
@@ -12486,11 +12626,16 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
     return boxes;
   }
 
+  function voiceCommandKey(command) {
+    if (command?.tool === "handwrite_text") return `text:${String(command.text || "").trim().toLowerCase()}`;
+    if (command?.tool === "math_work") return `math:${JSON.stringify(command.steps || []).toLowerCase()}`;
+    return "";
+  }
+
   function pendingVoiceTexts() {
     const pending = state.pending?.items || (state.pending ? [pendingSingleItem(state.pending)] : []);
     return new Set(pending
-      .filter((item) => item.command?.tool === "handwrite_text")
-      .map((item) => String(item.command.text || "").trim().toLowerCase())
+      .map((item) => voiceCommandKey(item.command))
       .filter(Boolean));
   }
 
@@ -12502,11 +12647,15 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       visible = viewportRect(),
       occupied = visible ? visibleInkBounds(visible) : null,
       normalized = raw
-        .map((command, index) => command?.tool === "handwrite_text" ? voiceHandwritingCommand(command, visible, occupied, index, state.scale) : command)
+        .map((command, index) => command?.tool === "handwrite_text"
+          ? voiceHandwritingCommand(command, visible, occupied, index, state.scale)
+          : command?.tool === "math_work"
+            ? voiceMathWorkCommand(command, visible, state.scale)
+            : command)
         .filter(Boolean),
       duplicateTexts = pendingVoiceTexts(),
       commands = validate(normalized, state.aiColor, null, visible)
-        .filter((command) => command.tool !== "handwrite_text" || !duplicateTexts.has(command.text.trim().toLowerCase())),
+        .filter((command) => !duplicateTexts.has(voiceCommandKey(command))),
       revision = state.userRevision,
       meta = { requestId:`voice-${Date.now()}` };
     if (!commands.length) return duplicateTexts.size
@@ -13182,8 +13331,8 @@ User writes “我需要根据地点, 显示空气质量”, names a place, and 
       height = Math.min(TEXT_EDITOR_DEFAULT_HEIGHT, Math.max(TEXT_EDITOR_MIN_HEIGHT, rect.height - 24)),
       center = clientPoint({ clientX:rect.left + rect.width / 2, clientY:rect.top + rect.height / 2 });
     return {
-      x:Math.max(0, Math.min(SIZE - width / scale, center.x - width / scale / 2)),
-      y:Math.max(0, Math.min(SIZE - height / scale, center.y - height / scale / 2)),
+      x:worldCoordinate(center.x - width / scale / 2, width / scale),
+      y:worldCoordinate(center.y - height / scale / 2, height / scale),
     };
   }
   function addClipboardText(text) {
