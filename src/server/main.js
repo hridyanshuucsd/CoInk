@@ -87,6 +87,8 @@ const MAX_LOG = 2 * 1024 * 1024;
 const MAX_SHARED_CANVAS_BYTES = 96 * 1024 * 1024;
 const MAX_SHARED_CANVASES = 200;
 const CANVAS_SIZE = 20000;
+const WORLD_COORDINATE_LIMIT = 10000000;
+const SIGNED_TILE_KEY_PATTERN = /^-?\d{1,5},-?\d{1,5}$/;
 const MAX_SELECTION_PATH_POINTS = 4096;
 const MAX_PLUGIN_DOCUMENT_BYTES = 12000;
 const MAX_PLUGIN_STYLES_BYTES = 32000;
@@ -841,19 +843,19 @@ function canonicalSharedCanvasV1(value) {
   if(!validSnapshotDataUrl(value.preview,new Set(["image/png","image/webp"]),2*1024*1024))return null;
   const seenTiles=new Set();
   for(const tile of tiles) {
-    if(!tile||typeof tile!=="object"||typeof tile.k!=="string"||!/^\d{1,2},\d{1,2}$/.test(tile.k)||seenTiles.has(tile.k)||!validSnapshotDataUrl(tile.data,new Set(["image/png"]),4*1024*1024))return null;
+    if(!tile||typeof tile!=="object"||typeof tile.k!=="string"||!SIGNED_TILE_KEY_PATTERN.test(tile.k)||seenTiles.has(tile.k)||!validSnapshotDataUrl(tile.data,new Set(["image/png"]),4*1024*1024))return null;
     const [x,y]=tile.k.split(",").map(Number);
-    if(x<0||y<0||x>=Math.ceil(CANVAS_SIZE/512)||y>=Math.ceil(CANVAS_SIZE/512))return null;
+    if(Math.abs(x)>=Math.ceil(WORLD_COORDINATE_LIMIT/512)||Math.abs(y)>=Math.ceil(WORLD_COORDINATE_LIMIT/512))return null;
     seenTiles.add(tile.k);
   }
   for(const image of images) {
     if(!image||typeof image!=="object"||typeof image.id!=="string"||!/^image-\d+$/.test(image.id)||!validSnapshotDataUrl(image.data,new Set(["image/png","image/jpeg","image/webp","image/gif"]),32*1024*1024))return null;
-    if(![image.x,image.y,image.w,image.h,image.naturalW,image.naturalH].every(Number.isFinite)||image.x<0||image.y<0||image.w<80||image.h<80||image.x+image.w>CANVAS_SIZE||image.y+image.h>CANVAS_SIZE||image.naturalW<1||image.naturalH<1||image.naturalW>2048||image.naturalH>2048||image.naturalW*image.naturalH>16*1024*1024)return null;
+    if(![image.x,image.y,image.w,image.h,image.naturalW,image.naturalH].every(Number.isFinite)||Math.abs(image.x)>WORLD_COORDINATE_LIMIT||Math.abs(image.y)>WORLD_COORDINATE_LIMIT||image.w<80||image.h<80||image.w>CANVAS_SIZE||image.h>CANVAS_SIZE||image.x+image.w>WORLD_COORDINATE_LIMIT||image.y+image.h>WORLD_COORDINATE_LIMIT||image.naturalW<1||image.naturalH<1||image.naturalW>2048||image.naturalH>2048||image.naturalW*image.naturalH>16*1024*1024)return null;
   }
   const canonicalTextBoxes=[];
   for(const item of textBoxes) {
     if(!item||typeof item!=="object"||typeof item.id!=="string"||!/^text-box-\d+$/.test(item.id)||typeof item.text!=="string"||!item.text.trim()||item.text.length>2000)return null;
-    if(![item.x,item.y,item.w,item.h,item.maxWidth,item.fontSize].every(Number.isFinite)||item.x<0||item.y<0||item.w<=0||item.h<=0||item.x+item.w>CANVAS_SIZE||item.y+item.h>CANVAS_SIZE||item.maxWidth<item.fontSize*3||item.maxWidth>CANVAS_SIZE||item.fontSize<1||item.fontSize>2000)return null;
+    if(![item.x,item.y,item.w,item.h,item.maxWidth,item.fontSize].every(Number.isFinite)||Math.abs(item.x)>WORLD_COORDINATE_LIMIT||Math.abs(item.y)>WORLD_COORDINATE_LIMIT||item.w<=0||item.h<=0||item.w>CANVAS_SIZE||item.h>CANVAS_SIZE||item.x+item.w>WORLD_COORDINATE_LIMIT||item.y+item.h>WORLD_COORDINATE_LIMIT||item.maxWidth<item.fontSize*3||item.maxWidth>CANVAS_SIZE||item.fontSize<1||item.fontSize>2000)return null;
     canonicalTextBoxes.push({
       id:item.id,x:item.x,y:item.y,w:item.w,h:item.h,maxWidth:item.maxWidth,fontSize:item.fontSize,
       color:typeof item.color==="string"?item.color.slice(0,40):"#1f2937",text:item.text,
@@ -1159,15 +1161,15 @@ function validTypedInput(value, changedBox, sourceRect) {
   if (value === undefined || value === null) return true;
   if (!changedBox || typeof changedBox !== "object" || !sourceRect || typeof sourceRect !== "object") return false;
   const box = finiteDebugBox(value?.box), intersects = box && box.x < sourceRect.x + sourceRect.w && box.x + box.w > sourceRect.x && box.y < sourceRect.y + sourceRect.h && box.y + box.h > sourceRect.y;
-  return value && typeof value === "object" && !Array.isArray(value) && typeof value.text === "string" && value.text.length > 0 && value.text.length <= 2000 && box && box.x >= 0 && box.y >= 0 && box.w > 0 && box.h > 0 && box.x + box.w <= CANVAS_SIZE && box.y + box.h <= CANVAS_SIZE && intersects;
+  return value && typeof value === "object" && !Array.isArray(value) && typeof value.text === "string" && value.text.length > 0 && value.text.length <= 2000 && box && box.x >= -WORLD_COORDINATE_LIMIT && box.y >= -WORLD_COORDINATE_LIMIT && box.w > 0 && box.h > 0 && box.x + box.w <= WORLD_COORDINATE_LIMIT && box.y + box.h <= WORLD_COORDINATE_LIMIT && intersects;
 }
 function selectionPoint(value) {
   const x = Array.isArray(value) ? value[0] : value?.x,
     y = Array.isArray(value) ? value[1] : value?.y;
-  return Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= CANVAS_SIZE && y <= CANVAS_SIZE ? { x, y } : null;
+  return Number.isFinite(x) && Number.isFinite(y) && Math.abs(x) <= WORLD_COORDINATE_LIMIT && Math.abs(y) <= WORLD_COORDINATE_LIMIT ? { x, y } : null;
 }
 function selectionBox(value) {
-  return value && typeof value === "object" && !Array.isArray(value) && [value.x, value.y, value.w, value.h].every(Number.isFinite) && value.x >= 0 && value.y >= 0 && value.w > 0 && value.h > 0 && value.x + value.w <= CANVAS_SIZE && value.y + value.h <= CANVAS_SIZE ? { x: value.x, y: value.y, w: value.w, h: value.h } : null;
+  return value && typeof value === "object" && !Array.isArray(value) && [value.x, value.y, value.w, value.h].every(Number.isFinite) && value.x >= -WORLD_COORDINATE_LIMIT && value.y >= -WORLD_COORDINATE_LIMIT && value.w > 0 && value.h > 0 && value.x + value.w <= WORLD_COORDINATE_LIMIT && value.y + value.h <= WORLD_COORDINATE_LIMIT ? { x: value.x, y: value.y, w: value.w, h: value.h } : null;
 }
 function selectionPathBounds(path) {
   if (!Array.isArray(path) || !path.length) return null;
@@ -1319,7 +1321,7 @@ function canonicalWidgetEdit(value, plugins) {
 function validPayload(p) {
   const validImage = value => typeof value === "string" && value.length <= 8 * 1024 * 1024 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
   const image = validImage(p?.atlasImage);
-  const validBox = b => b && typeof b === "object" && [b.x,b.y,b.w,b.h].every(Number.isFinite) && b.x >= 0 && b.y >= 0 && b.w > 0 && b.h > 0 && b.x + b.w <= CANVAS_SIZE && b.y + b.h <= CANVAS_SIZE;
+  const validBox = b => b && typeof b === "object" && [b.x,b.y,b.w,b.h].every(Number.isFinite) && b.x >= -WORLD_COORDINATE_LIMIT && b.y >= -WORLD_COORDINATE_LIMIT && b.w > 0 && b.h > 0 && b.x + b.w <= WORLD_COORDINATE_LIMIT && b.y + b.h <= WORLD_COORDINATE_LIMIT;
   const grid=p?.hotspotGrid,size=p?.atlasSize,source=p?.sourceRect,capture=p?.captureRect,contains=(outer,inner)=>inner.x>=outer.x&&inner.y>=outer.y&&inner.x+inner.w<=outer.x+outer.w+.001&&inner.y+inner.h<=outer.y+outer.h+.001,validGrid=grid&&grid.columns===8&&grid.rows===8&&grid.order==="oldest-to-newest"&&Array.isArray(grid.hotspots)&&grid.hotspots.length<=64&&grid.hotspots.every(h=>Array.isArray(h?.cell)&&h.cell.length===2&&Number.isInteger(h.cell[0])&&Number.isInteger(h.cell[1])&&h.cell[0]>=0&&h.cell[0]<8&&h.cell[1]>=0&&h.cell[1]<8&&h.imageRect&&[h.imageRect.x,h.imageRect.y,h.imageRect.w,h.imageRect.h].every(Number.isFinite)&&h.imageRect.x>=0&&h.imageRect.y>=0&&h.imageRect.w>0&&h.imageRect.h>0&&h.imageRect.x+h.imageRect.w<=size?.w+1&&h.imageRect.y+h.imageRect.h<=size?.h+1),validGeometry=validBox(p?.changedBox)&&validBox(p?.visibleRect)&&validBox(capture)&&validBox(source)&&contains(p.visibleRect,capture)&&contains(capture,source)&&contains(source,p.changedBox),validSize=validGeometry&&Number.isFinite(p.imageScale)&&p.imageScale>0&&p.imageScale<=1&&Number.isInteger(size?.w)&&Number.isInteger(size?.h)&&size.w>0&&size.w<=2048&&size.h>0&&size.h<=1536&&size.w===Math.ceil(source.w*p.imageScale)&&size.h===Math.ceil(source.h*p.imageScale),inset=p?.focusInset,validInset=inset===null||inset===undefined||(validBox(inset.sourceRect)&&contains(source,inset.sourceRect)&&inset.imageRect&&[inset.imageRect.x,inset.imageRect.y,inset.imageRect.w,inset.imageRect.h].every(Number.isFinite)&&inset.imageRect.x>=0&&inset.imageRect.y>=0&&inset.imageRect.w>0&&inset.imageRect.h>0&&inset.imageRect.x+inset.imageRect.w<=size?.w&&inset.imageRect.y+inset.imageRect.h<=size?.h&&Number.isFinite(inset.imageScale)&&inset.imageScale>p.imageScale&&inset.imageScale<=3),validTheme=Object.hasOwn(THEME_PERSONAS,p?.uiTheme),validPersona=validTheme&&p?.persona===THEME_PERSONAS[p.uiTheme],validAction=DEBUG_ACTIONS.has(p?.userAction),validEffort=p?.reasoningEffort===undefined||UI_EFFORTS.has(p.reasoningEffort),validAnimation=p?.animationEnabled===undefined||typeof p.animationEnabled==="boolean",validPlugins=p?.plugins===undefined||Array.isArray(p.plugins)&&p.plugins.length<=MAX_ENABLED_PLUGINS&&p.plugins.every(validPluginDescriptor)&&new Set(p.plugins.map(plugin=>plugin.id)).size===p.plugins.length,validTrigger=p?.trigger==="user_paused"&&p.userAction==="auto"||p?.trigger==="manual"&&validAction&&p.userAction!=="auto";
   const typedValid = validTypedInput(p?.typedInput, p?.changedBox, p?.sourceRect), selectionValid = validSelectionContext(p?.selectionContext), selectionRequired = p?.userAction !== "normalize" || Boolean(p?.selectionContext), contextBox = selectionBox(p?.selectionContext?.box), selectionGeometry = !p?.selectionContext || Boolean(contextBox && selectionBoxesMatch(contextBox, p?.sourceRect) && selectionBoxesMatch(contextBox, p?.changedBox)),
     widgetEdit = validPlugins ? canonicalWidgetEdit(p?.widgetEdit, p.plugins || []) : false,
