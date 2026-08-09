@@ -4,26 +4,35 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.PENECHO_SELECTION = api;
 })(typeof globalThis === "object" ? globalThis : this, function () {
+  function coordinateBounds(limit) {
+    if (limit && typeof limit === "object") {
+      const minimum = Number(limit.min), maximum = Number(limit.max);
+      if (Number.isFinite(minimum) && Number.isFinite(maximum) && maximum > minimum) return { minimum, maximum };
+    }
+    return { minimum:0, maximum:Number.isFinite(limit) ? limit : 20000 };
+  }
   function clipPoint(point, limit) {
-    return { x: Math.max(0, Math.min(limit, point.x)), y: Math.max(0, Math.min(limit, point.y)) };
+    const { minimum, maximum } = coordinateBounds(limit);
+    return { x: Math.max(minimum, Math.min(maximum, point.x)), y: Math.max(minimum, Math.min(maximum, point.y)) };
   }
 
   function polygonBounds(points, limit) {
     if (!points.length) return null;
-    let left = limit,
-      top = limit,
-      right = 0,
-      bottom = 0;
+    const { minimum, maximum } = coordinateBounds(limit);
+    let left = Infinity,
+      top = Infinity,
+      right = -Infinity,
+      bottom = -Infinity;
     for (const point of points) {
       left = Math.min(left, point.x);
       top = Math.min(top, point.y);
       right = Math.max(right, point.x);
       bottom = Math.max(bottom, point.y);
     }
-    left = Math.max(0, Math.floor(left));
-    top = Math.max(0, Math.floor(top));
-    right = Math.min(limit, Math.ceil(right));
-    bottom = Math.min(limit, Math.ceil(bottom));
+    left = Math.max(minimum, Math.floor(left));
+    top = Math.max(minimum, Math.floor(top));
+    right = Math.min(maximum, Math.ceil(right));
+    bottom = Math.min(maximum, Math.ceil(bottom));
     return { x: left, y: top, w: Math.max(0, right - left), h: Math.max(0, bottom - top) };
   }
 
@@ -81,16 +90,18 @@
 
   function moveBox(box, dx, dy, limit) {
     if (!box || !Number.isFinite(box.w) || !Number.isFinite(box.h) || box.w <= 0 || box.h <= 0) return { ...box };
+    const { minimum, maximum } = coordinateBounds(limit);
     return {
       ...box,
-      x: Math.max(0, Math.min(limit - box.w, box.x + dx)),
-      y: Math.max(0, Math.min(limit - box.h, box.y + dy)),
+      x: Math.max(minimum, Math.min(maximum - box.w, box.x + dx)),
+      y: Math.max(minimum, Math.min(maximum - box.h, box.y + dy)),
     };
   }
 
   function resizeBox(box, point, minimum, limit) {
     if (!box || !Number.isFinite(box.w) || !Number.isFinite(box.h) || box.w <= 0 || box.h <= 0) return { ...box };
-    const maximumScale = Math.max(Number.EPSILON, Math.min((limit - box.x) / box.w, (limit - box.y) / box.h)),
+    const { maximum } = coordinateBounds(limit),
+      maximumScale = Math.max(Number.EPSILON, Math.min((maximum - box.x) / box.w, (maximum - box.y) / box.h)),
       minimumScale = Math.min(maximumScale, Math.max(minimum / box.w, minimum / box.h)),
       requestedScale = Math.max((point.x - box.x) / box.w, (point.y - box.y) / box.h),
       scale = Math.max(minimumScale, Math.min(maximumScale, requestedScale));
@@ -99,12 +110,13 @@
 
   function resizeBoxAxis(box, point, axis, minimum, limit) {
     if (!box || !Number.isFinite(box.w) || !Number.isFinite(box.h) || box.w <= 0 || box.h <= 0) return { ...box };
+    const { maximum:coordinateMaximum } = coordinateBounds(limit);
     if (axis === "width") {
-      const maximum = Math.max(minimum, limit - box.x);
+      const maximum = Math.max(minimum, coordinateMaximum - box.x);
       return { ...box, w: Math.max(Math.min(maximum, point.x - box.x), Math.min(minimum, maximum)) };
     }
     if (axis === "height") {
-      const maximum = Math.max(minimum, limit - box.y);
+      const maximum = Math.max(minimum, coordinateMaximum - box.y);
       return { ...box, h: Math.max(Math.min(maximum, point.y - box.y), Math.min(minimum, maximum)) };
     }
     return resizeBox(box, point, minimum, limit);

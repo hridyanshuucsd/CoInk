@@ -1469,7 +1469,7 @@
     if (selection.legacyActions) drawDraftActions(ctx, selection.box, size);
   }
   function captureSelection(points) {
-    const box = SELECT.polygonBounds(points, SIZE);
+    const box = SELECT.polygonBounds(points, WORLD_COORDINATE_BOUNDS);
     if (!box || points.length < 3 || SELECT.pathLength(points, state.scale) < 12 || box.w * state.scale < 4 || box.h * state.scale < 4) {
       setStatusKey("selectionTooSmall");
       return false;
@@ -1705,7 +1705,7 @@
       : SELECT.hitTest(selection.box, point, size, includeLegacyActions);
   }
   function beginSelectionLasso(event, point) {
-    state.selection = { phase: "lasso", points: [SELECT.clipPoint(point, SIZE)], box: null };
+    state.selection = { phase: "lasso", points: [SELECT.clipPoint(point, WORLD_COORDINATE_BOUNDS)], box: null };
     state.selectionGesture = { id: event.pointerId, hit: "lasso" };
     resetCanvasCursor();
     requestRender();
@@ -1736,11 +1736,11 @@
       const samples = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [],
         events = samples.length ? samples : [event],
         minimumDistance = 0.75 / Math.max(0.03, state.scale);
-      for (const sample of events) addLassoPoint(selection, SELECT.clipPoint(clientPoint(sample), SIZE), minimumDistance);
-      selection.box = SELECT.polygonBounds(selection.points, SIZE);
-    } else if (gesture.hit === "move") selection.box = SELECT.moveBox(gesture.startBox, point.x - gesture.startPoint.x, point.y - gesture.startPoint.y, SIZE);
-    else if (gesture.hit === "resize") selection.box = SELECT.resizeBox(gesture.startBox, point, 24 / state.scale, SIZE);
-    else if (gesture.hit === "width" || gesture.hit === "height") selection.box = SELECT.resizeBoxAxis(gesture.startBox, point, gesture.hit, 24 / state.scale, SIZE);
+      for (const sample of events) addLassoPoint(selection, SELECT.clipPoint(clientPoint(sample), WORLD_COORDINATE_BOUNDS), minimumDistance);
+      selection.box = SELECT.polygonBounds(selection.points, WORLD_COORDINATE_BOUNDS);
+    } else if (gesture.hit === "move") selection.box = SELECT.moveBox(gesture.startBox, point.x - gesture.startPoint.x, point.y - gesture.startPoint.y, WORLD_COORDINATE_BOUNDS);
+    else if (gesture.hit === "resize") selection.box = SELECT.resizeBox(gesture.startBox, point, 24 / state.scale, WORLD_COORDINATE_BOUNDS);
+    else if (gesture.hit === "width" || gesture.hit === "height") selection.box = SELECT.resizeBoxAxis(gesture.startBox, point, gesture.hit, 24 / state.scale, WORLD_COORDINATE_BOUNDS);
     if (selection.phase === "active") selection.path = selectionPathFor(selection);
     requestRender();
     return true;
@@ -1753,7 +1753,7 @@
     resetCanvasCursor();
     if (gesture.hit === "lasso") {
       if (selection && event.type !== "pointercancel") {
-        const point = SELECT.clipPoint(clientPoint(event), SIZE);
+        const point = SELECT.clipPoint(clientPoint(event), WORLD_COORDINATE_BOUNDS);
         addLassoPoint(selection, point, 0.5 / state.scale);
       }
       const points = selection?.points || [];

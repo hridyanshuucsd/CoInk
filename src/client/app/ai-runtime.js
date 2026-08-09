@@ -2487,7 +2487,7 @@
         return true;
       }
       if (g.hit === "batch-resize") {
-        if (g.armed) resizePendingBatchItems(p.items, g.batchStartBounds, g.itemStarts, q, 40, SIZE);
+        if (g.armed) resizePendingBatchItems(p.items, g.batchStartBounds, g.itemStarts, q, 40, WORLD_COORDINATE_BOUNDS);
         g.last = q;
         if (g.armed) render();
         return true;
