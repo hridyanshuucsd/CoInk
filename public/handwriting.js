@@ -122,6 +122,15 @@ export function layoutHandwriting(text, {
     if (!token) return;
     const isWhitespace = /^\s+$/.test(token);
     const estimated = tokenWidth(token);
+    if (!isWhitespace && estimated > maxWidth) {
+      if (cursorX > x) newline();
+      for (const ch of token) {
+        const characterWidth = tokenWidth(ch);
+        if (cursorX > x && cursorX + characterWidth > x + maxWidth) newline();
+        placeToken(ch);
+      }
+      return;
+    }
     if (!isWhitespace && cursorX > x && cursorX + estimated > x + maxWidth) newline();
     for (const ch of token) {
       if (ch === '\n') { newline(); continue; }
