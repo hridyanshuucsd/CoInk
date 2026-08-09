@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
+  CANVAS_COMMANDS_TOOL,
   REALTIME_CALL_URL,
   WRITE_ON_CANVAS_TOOL,
   createRealtimeCall,
@@ -27,6 +28,12 @@ test("Realtime voice uses an official selected OpenAI connection without exposin
   assert.match(WRITE_ON_CANVAS_TOOL.description, /whenever the student asks/i);
   assert.deepEqual(WRITE_ON_CANVAS_TOOL.parameters.properties.placement.enum, ["auto", "above", "below", "left", "right", "inside"]);
   assert.deepEqual(WRITE_ON_CANVAS_TOOL.parameters.properties.target.required, ["x", "y", "w", "h"]);
+  assert.ok(CANVAS_COMMANDS_TOOL.parameters.properties.commands.items.properties.tool.enum.includes("math_work"));
+  assert.deepEqual(
+    CANVAS_COMMANDS_TOOL.parameters.properties.commands.items.properties.steps.items.required,
+    ["equation"],
+  );
+  assert.match(session.instructions, /semantic math_work/i);
   assert.match(session.instructions, /never say that you cannot write or draw/i);
   assert.match(session.instructions, /at most one canvas tool call per student turn/i);
   assert.match(session.instructions, /do not repeat it/i);

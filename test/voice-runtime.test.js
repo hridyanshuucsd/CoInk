@@ -94,6 +94,45 @@ test("voice handwriting follows a model-selected target relationship", () => {
   assert.ok(command.x >= visible.x && command.x + command.maxWidth <= visible.x + visible.w);
 });
 
+test("voice math work keeps semantic steps instead of relying on typed spaces", () => {
+  const runtime = read("src/client/app/voice-runtime.js"),
+    normalize = vm.runInNewContext(`(${functionSource(runtime, "voiceMathWorkCommand")})`),
+    visible = { x:-9000, y:-4000, w:18000, h:9000 },
+    target = { x:-1200, y:-800, w:3600, h:900 },
+    command = normalize({
+      tool:"math_work",
+      steps:[
+        { equation:"5x + 3 = 8", operation:"-3" },
+        { equation:"5x = 5", operation:"divide by 5" },
+        { equation:"x = 1" },
+      ],
+      target,
+      placement:"below",
+    }, visible, .1);
+  assert.equal(command.tool, "math_work");
+  assert.deepEqual(command.steps.map(step => ({ ...step })), [
+    { equation:"5x + 3 = 8", operation:"\u22123" },
+    { equation:"5x = 5", operation:"\u00f75" },
+    { equation:"x = 1" },
+  ]);
+  assert.ok(command.x >= visible.x && command.y > target.y + target.h);
+  assert.ok(command.fontSize * .1 >= 40);
+});
+
+test("semantic math geometry aligns every equals sign and both-side operation", () => {
+  const source = read("src/client/app/ai-runtime.js"),
+    layout = vm.runInNewContext(`(${functionSource(source, "mathWorkGeometry")})`),
+    result = layout([
+      { leftWidth:520, equalsWidth:90, rightWidth:120, height:150, operationWidth:130, operationHeight:120 },
+      { leftWidth:250, equalsWidth:90, rightWidth:100, height:150, operationWidth:120, operationHeight:120 },
+      { leftWidth:80, equalsWidth:90, rightWidth:80, height:150, operationWidth:0, operationHeight:0 },
+    ], 180);
+  assert.equal(new Set(result.rows.map(row => row.equalsX)).size, 1);
+  assert.ok(result.rows.slice(0, 2).every(row => row.leftOperationX + row.operationWidth <= row.equalsX));
+  assert.ok(result.rows.slice(0, 2).every(row => row.rightOperationX > row.equalsX));
+  assert.ok(result.rows[0].y < result.rows[1].y && result.rows[1].y < result.rows[2].y);
+});
+
 test("draft overlap resolution treats settled canvas content as an obstacle", () => {
   const source = read("src/client/app/ai-runtime.js"),
     resolve = vm.runInNewContext(`(${functionSource(source, "resolvePendingItemOverlaps")})`, {
