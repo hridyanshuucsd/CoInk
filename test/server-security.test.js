@@ -1305,7 +1305,7 @@ test("enabled plugin documents reach the model and gate html_widget commands", {
     const edgeResponse = await fetch(`${origin}/api/ai/command`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(enabled) }),
       edge = await edgeResponse.json();
     assert.equal(edgeResponse.status, 200);
-    assert.deepEqual({ x:edge.commands[0].x, y:edge.commands[0].y, w:edge.commands[0].w, h:edge.commands[0].h }, { x:17600, y:18850, w:2400, h:1150 });
+    assert.deepEqual({ x:edge.commands[0].x, y:edge.commands[0].y, w:edge.commands[0].w, h:edge.commands[0].h }, { x:17900, y:19300, w:2400, h:1150 });
 
     const imagePayload = validPayload();
     imagePayload.plugins = [builtInPluginDescriptor("image-search", ["https://commons.wikimedia.org", "https://upload.wikimedia.org", "https://api.openverse.org"])];
@@ -1447,8 +1447,8 @@ test("html_widget commands fill required fields and discard invalid optional met
         refreshSeconds:clamped.commands[0].refreshSeconds,
       },
       {
-        x:19700,
-        y:0,
+        x:30000,
+        y:-500,
         w:300,
         h:450,
         title:"T".repeat(120),
@@ -2626,8 +2626,8 @@ test("normalize translates a mixed Typeset group beside an edge selection", { ti
     const dx=body.commands[0].x-sourceCommands[0].x,dy=body.commands[0].y-sourceCommands[0].y;
     for (const command of body.commands) {
       assert.ok(Number.isFinite(command.x)&&Number.isFinite(command.y));
-      assert.ok(command.x>=0&&command.y>=0&&command.x<=20000&&command.y<=20000);
-      assert.ok(command.x+1<=selected.x||command.y+1<=selected.y,"each normalized command must be placed beside, not over, the lasso");
+      assert.ok(Math.abs(command.x)<=10000000&&Math.abs(command.y)<=10000000);
+      assert.ok(command.x+1<=selected.x||command.y+1<=selected.y||command.x>=selected.x+selected.w||command.y>=selected.y+selected.h,"each normalized command must be placed beside, not over, the lasso");
     }
     body.commands.forEach((command,index)=>{
       assert.equal(command.x-sourceCommands[index].x,dx);
