@@ -23,10 +23,35 @@ test("Hershey handwriting produces deterministic vector strokes", async () => {
   assert.ok(first.strokes.every(stroke => stroke.author === "ai" && stroke.points.length >= 2));
 });
 
+test("handwriting wraps every glyph of words wider than the requested line", async () => {
+  const { layoutHandwriting } = await handwritingModule(),
+    maxWidth = 220,
+    result = layoutHandwriting("electromagnetism", { x:20, y:20, fontSize:86, maxWidth, seed:"long-word" });
+  assert.ok(result.strokes.length > 20);
+  assert.ok(result.bounds.maxX <= 20 + maxWidth + 1, `word escaped line width: ${result.bounds.maxX}`);
+  assert.ok(result.height > 86, "the oversized word should continue on another line");
+});
+
+test("success-scenario teaching phrases remain complete inside narrow handwriting lines", async () => {
+  const { layoutHandwriting } = await handwritingModule(), phrases = [
+    "minus a negative",
+    "same V, not same I",
+    "generation does not equal delivery",
+    "arrow tail means electrons",
+    "acceleration still downward",
+  ];
+  for (const text of phrases) {
+    const maxWidth = 300, result = layoutHandwriting(text, { x:18, y:18, fontSize:72, maxWidth, seed:text });
+    assert.ok(result.strokes.length > 0, `missing strokes for ${text}`);
+    assert.ok(result.bounds.maxX <= 18 + maxWidth + 1, `${text} escaped its line width`);
+  }
+});
+
 test("canvas AI validates and rasterizes handwriting as a movable draft", () => {
   const source = read("src/client/app/ai-runtime.js");
   assert.match(source, /acceptedTools = \["write_text", "handwrite_text"/);
   assert.match(source, /import\("\/handwriting\.js"\)/);
   assert.match(source, /c\.tool === "handwrite_text"[\s\S]*?await handwritingImage/);
   assert.match(source, /\["write_text", "handwrite_text"\]\.includes\(command\?\.tool\)/);
+  assert.doesNotMatch(source, /Math\.min\(maxWidth, \(bounds\?\.maxX/);
 });

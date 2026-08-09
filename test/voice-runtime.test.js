@@ -34,7 +34,7 @@ test("voice tutor sends authenticated WebRTC, canvas, and exact-math tool traffi
   assert.match(runtime, /import\("\/realtime\.js"\)/);
   assert.match(runtime, /requestHeaders:headers => aiRequestHeaders\(headers\)/);
   assert.match(runtime, /buildViewportImage\(\[\], visible, true\)/);
-  assert.match(runtime, /queueVoiceCanvasCommands[\s\S]*?voiceHandwritingCommand[\s\S]*?validate\(normalized[\s\S]*?animate\(command/);
+  assert.match(runtime, /async function queueVoiceCanvasCommands[\s\S]*?voiceHandwritingCommand[\s\S]*?validate\(normalized[\s\S]*?preparePendingItem[\s\S]*?resolvePendingItemOverlaps[\s\S]*?startPendingBatch/);
   assert.match(runtime, /name === "write_on_canvas"[\s\S]*?queueVoiceCanvasCommands/);
   assert.match(runtime, /fetch\("\/api\/math\/verify"/);
   assert.match(transport, /credentials:'same-origin'/);
@@ -72,4 +72,42 @@ test("voice handwriting preserves usable model geometry and fills only missing f
   assert.equal(command.y, 500);
   assert.equal(command.fontSize, 88);
   assert.ok(Number.isFinite(command.maxWidth));
+});
+
+test("voice handwriting stays readable at the success-demo overview zoom", () => {
+  const runtime = read("src/client/app/voice-runtime.js"),
+    normalize = vm.runInNewContext(`(${functionSource(runtime, "voiceHandwritingCommand")})`),
+    visible = { x:1000, y:2000, w:19000, h:9000 },
+    command = normalize({ text:"First subtract 3 from both sides" }, visible, null, 0, .1);
+  assert.ok(command.fontSize * .1 >= 40, `screen font was ${command.fontSize * .1}px`);
+  assert.ok(command.maxWidth * .1 >= 360, `screen line was ${command.maxWidth * .1}px`);
+  assert.ok(command.x + command.maxWidth <= visible.x + visible.w);
+});
+
+test("voice handwriting follows a model-selected target relationship", () => {
+  const runtime = read("src/client/app/voice-runtime.js"),
+    normalize = vm.runInNewContext(`(${functionSource(runtime, "voiceHandwritingCommand")})`),
+    visible = { x:0, y:0, w:12000, h:8000 },
+    target = { x:2800, y:1900, w:4200, h:900 },
+    command = normalize({ text:"Check this sign", target, placement:"below" }, visible, null, 0, .2);
+  assert.ok(command.y > target.y + target.h);
+  assert.ok(command.x >= visible.x && command.x + command.maxWidth <= visible.x + visible.w);
+});
+
+test("draft overlap resolution treats settled canvas content as an obstacle", () => {
+  const source = read("src/client/app/ai-runtime.js"),
+    resolve = vm.runInNewContext(`(${functionSource(source, "resolvePendingItemOverlaps")})`, {
+      state:{ scale:.1 }, SIZE:20000, viewportRect:() => ({ x:0, y:0, w:18000, h:9000 }), debug() {},
+    }),
+    obstacle = { x:1000, y:1000, w:7000, h:1200 },
+    items = Array.from({ length:3 }, (_, index) => ({
+      command:{ tool:"handwrite_text", text:`hint ${index}` }, x:1200, y:1200,
+      image:{ logicalWidth:4200, logicalHeight:900 }, layoutWidth:4200, layoutHeight:900,
+    }));
+  resolve(items, { requestId:"voice-test" }, [obstacle]);
+  const boxes = items.map(item => ({ x:item.x, y:item.y, w:item.image.logicalWidth, h:item.image.logicalHeight }));
+  const overlaps = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x)
+    && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
+  assert.ok(boxes.every(box => !overlaps(box, obstacle)), "a hint covered student work");
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) assert.equal(overlaps(boxes[i], boxes[j]), false);
 });
