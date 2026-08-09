@@ -123,14 +123,17 @@
     return frames ? { ...base, frames } : null;
   }
 
-  function normalize(command, canvasSize = 20000) {
+  function normalize(command, options = 20000) {
     if (!command || typeof command !== "object" || Array.isArray(command) || (command.tool || command.type || command.name) !== "animate_scene") return null;
-    const x = command.x,
+    const edgeless = options && typeof options === "object",
+      coordinateLimit = edgeless && Number.isFinite(options.coordinateLimit) ? options.coordinateLimit : Number.isFinite(options) ? options : 20000,
+      coordinateMinimum = edgeless ? -coordinateLimit : 0,
+      x = command.x,
       y = command.y,
       width = command.w,
       height = command.h,
       durationMs = period(command.durationMs, 8000);
-    if (![x, y, width, height].every(finite) || x < 0 || y < 0 || width < 120 || height < 90 || width > 6000 || height > 6000 || x + width > canvasSize || y + height > canvasSize) return null;
+    if (![x, y, width, height].every(finite) || x < coordinateMinimum || y < coordinateMinimum || width < 120 || height < 90 || width > 6000 || height > 6000 || x + width > coordinateLimit || y + height > coordinateLimit) return null;
     if (!Array.isArray(command.objects) || !command.objects.length || command.objects.length > MAX_OBJECTS || !Array.isArray(command.motions) || !command.motions.length || command.motions.length > MAX_MOTIONS) return null;
     const objects = command.objects.map((object, index) => normalizeObject(object, index, width, height));
     if (objects.some((object) => !object)) return null;

@@ -1958,7 +1958,7 @@
   }
   function addAnimation(scene, transform = scene, playback = null) {
     if (!pluginEnabled("animation") || state.animations.length >= MAX_VISIBLE_ANIMATIONS) return null;
-    const normalized = ANIMATION?.normalize(scene, SIZE);
+    const normalized = ANIMATION?.normalize(scene, { coordinateLimit:WORLD_COORDINATE_LIMIT });
     if (!normalized) return null;
     recordAnimationsBefore();
     const now = performance.now(),

@@ -915,11 +915,15 @@
             return null;
           }
           c.color = aiColor;
+          c.x = worldCoordinate(c.x, c.w);
+          c.y = worldCoordinate(c.y, c.h);
           plotPixels += c.w * c.h;
         }
         if (c.tool === "generate_image") {
           if (generatedImageSlots <= 0 || !n(c.x) || !n(c.y) || !n(c.w, 256, 6000) || !n(c.h, 256, 6000) || c.w * c.h > 12000000 || Math.max(c.w / c.h, c.h / c.w) > 3 || typeof c.prompt !== "string" || !c.prompt.trim() || c.prompt.length > 2000) return null;
           c.prompt = c.prompt.trim();
+          c.x = worldCoordinate(c.x, c.w);
+          c.y = worldCoordinate(c.y, c.h);
           generatedImageSlots--;
         }
         if (c.tool === "draw") {
@@ -986,7 +990,7 @@
             if (Math.max(...xs) - Math.min(...xs) > 3000 || Math.max(...ys) - Math.min(...ys) > 3000) return null;
           } else {
             c.mode = "rect";
-            if (!n(c.x) || !n(c.y) || !n(c.w, 1, 2000) || !n(c.h, 1, 2000) || c.x + c.w > SIZE || c.y + c.h > SIZE) return null;
+            if (!n(c.x) || !n(c.y) || !n(c.w, 1, 2000) || !n(c.h, 1, 2000) || c.x + c.w > WORLD_COORDINATE_LIMIT || c.y + c.h > WORLD_COORDINATE_LIMIT) return null;
           }
         }
         return c;
@@ -1053,7 +1057,7 @@
         } else if (c.tool === "generate_image") {
           image = await generatedImageDraft(c);
         } else if (c.tool === "animate_scene") {
-          pendingCommand = ANIMATION.normalize(c, SIZE);
+          pendingCommand = ANIMATION.normalize(c, { coordinateLimit:WORLD_COORDINATE_LIMIT });
           image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
         } else if (c.tool === "draw") {
           const made = DRAW.render(c, offscreen, c.color);
@@ -1096,7 +1100,7 @@
     else if (c.tool === "plot_function") image = plot(c);
     else if (c.tool === "generate_image") image = await generatedImageDraft(c);
     else if (c.tool === "animate_scene") {
-      pendingCommand = ANIMATION.normalize(c, SIZE);
+      pendingCommand = ANIMATION.normalize(c, { coordinateLimit:WORLD_COORDINATE_LIMIT });
       image = pendingCommand ? ANIMATION.rasterize(pendingCommand, offscreen, 0, Math.min(2, sharpRenderRatio())) : null;
     } else if (c.tool === "draw") {
       const made = DRAW.render(c, offscreen, c.color);
