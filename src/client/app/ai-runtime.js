@@ -1109,32 +1109,57 @@
       layoutHeight: logicalHeight,
     };
   }
-  function resolvePendingItemOverlaps(items, meta) {
+  function resolvePendingItemOverlaps(items, meta, obstacles = []) {
     const gap = Math.max(40, 14 / Math.max(0.03, state.scale)),
+      visible = viewportRect() || { x:0, y:0, w:SIZE, h:SIZE },
       flow = items
         .filter((item) => ["write_text", "handwrite_text", "draw_formula"].includes(item.command.tool))
         .sort((a, b) => a.y - b.y || a.x - b.x),
       placed = [],
-      fixed = items
-        .filter((item) => !["write_text", "handwrite_text", "draw_formula", "draw"].includes(item.command.tool))
-        .map((item) => item.erase ? item.bounds : { x: item.x, y: item.y, w: item.layoutWidth, h: item.layoutHeight });
+      fixed = obstacles
+        .filter((box) => box && [box.x, box.y, box.w, box.h].every(Number.isFinite) && box.w > 0 && box.h > 0)
+        .map((box) => ({ ...box }))
+        .concat(items
+          .filter((item) => !["write_text", "handwrite_text", "draw_formula", "draw"].includes(item.command.tool))
+          .map((item) => item.erase ? item.bounds : { x:item.x, y:item.y, w:item.layoutWidth, h:item.layoutHeight }));
+    const intersects = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x)
+      && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
+    const clampPosition = (position, width, height) => ({
+      x:Math.max(visible.x, Math.min(visible.x + Math.max(0, visible.w - width), position.x)),
+      y:Math.max(visible.y, Math.min(visible.y + Math.max(0, visible.h - height), position.y)),
+    });
+    const openPosition = (start, width, height, boxes) => {
+      const queue = [clampPosition(start, width, height)], seen = new Set();
+      let fallback = queue[0], fallbackOverlap = Infinity;
+      for (let attempt = 0; queue.length && attempt < 160; attempt++) {
+        const position = queue.shift(), key = `${Math.round(position.x)},${Math.round(position.y)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const candidate = { ...position, w:width, h:height }, collisions = boxes.filter((box) => intersects(candidate, box));
+        if (!collisions.length) return position;
+        const overlap = collisions.reduce((sum, box) => sum
+          + Math.max(0, Math.min(candidate.x + width, box.x + box.w) - Math.max(candidate.x, box.x))
+          * Math.max(0, Math.min(candidate.y + height, box.y + box.h) - Math.max(candidate.y, box.y)), 0);
+        if (overlap < fallbackOverlap) { fallback = position; fallbackOverlap = overlap; }
+        for (const box of collisions) {
+          queue.push(clampPosition({ x:position.x, y:box.y + box.h + gap }, width, height));
+          queue.push(clampPosition({ x:box.x + box.w + gap, y:position.y }, width, height));
+          queue.push(clampPosition({ x:position.x, y:box.y - height - gap }, width, height));
+          queue.push(clampPosition({ x:box.x - width - gap, y:position.y }, width, height));
+        }
+      }
+      return fallback;
+    };
     for (const item of flow) {
       const width = item.image.logicalWidth || item.image.width,
-        height = item.image.logicalHeight || item.image.height;
-      let y = item.y;
-      for (let pass = 0; pass < items.length; pass++) {
-        const collisions = [...fixed, ...placed].filter((prior) => {
-          const horizontalOverlap = Math.min(item.x + width, prior.x + prior.w) - Math.max(item.x, prior.x),
-            verticalOverlap = Math.min(y + height, prior.y + prior.h) - Math.max(y, prior.y);
-          return horizontalOverlap > 0 && verticalOverlap > 0;
-        });
-        if (!collisions.length) break;
-        y = Math.max(...collisions.map((prior) => prior.y + prior.h)) + gap;
-      }
-      const originalY = item.y;
-      item.y = Math.max(0, Math.min(SIZE - height, y));
-      if (item.y !== originalY) debug("tool-layout-adjusted", { ...meta, tool: item.command.tool, x: item.x, originalY, y: item.y, width, height });
-      placed.push({ x: item.x, y: item.y, w: width, h: height });
+        height = item.image.logicalHeight || item.image.height,
+        originalX = item.x,
+        originalY = item.y,
+        position = openPosition({ x:item.x, y:item.y }, width, height, [...fixed, ...placed]);
+      item.x = position.x;
+      item.y = position.y;
+      if (item.x !== originalX || item.y !== originalY) debug("tool-layout-adjusted", { ...meta, tool:item.command.tool, originalX, originalY, x:item.x, y:item.y, width, height });
+      placed.push({ x:item.x, y:item.y, w:width, h:height });
     }
   }
   function sharpRenderRatio() {
@@ -2145,6 +2170,7 @@
     const firstAddedIndex = p.items.length,
       additions = items.map((item) => ({ ...item, x: item.erase ? item.bounds.x : item.x, y: item.erase ? item.bounds.y : item.y, scaleX: item.scaleX || 1, scaleY: item.scaleY || 1, animationPlayback: item.animationScene ? item.animationPlayback || createAnimationPlayback() : null })),
       addedAnimationIndex = additions.findIndex((item) => item.animationScene);
+    resolvePendingItemOverlaps(additions, meta, p.items.map((item) => pendingItemBounds(item)));
     p.items.push(...additions);
     if (addedAnimationIndex >= 0) p.selectedIndex = firstAddedIndex + addedAnimationIndex;
     if (!p.selection && state.activeAI?.isolatedSelection) p.selection = state.activeAI.selection || null;
