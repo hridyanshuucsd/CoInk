@@ -96,7 +96,8 @@ test("voice handwriting follows a model-selected target relationship", () => {
 
 test("voice math work keeps semantic steps instead of relying on typed spaces", () => {
   const runtime = read("src/client/app/voice-runtime.js"),
-    normalize = vm.runInNewContext(`(${functionSource(runtime, "voiceMathWorkCommand")})`),
+    voiceMathOperation = vm.runInNewContext(`(${functionSource(runtime, "voiceMathOperation")})`),
+    normalize = vm.runInNewContext(`(${functionSource(runtime, "voiceMathWorkCommand")})`, { voiceMathOperation }),
     visible = { x:-9000, y:-4000, w:18000, h:9000 },
     target = { x:-1200, y:-800, w:3600, h:900 },
     command = normalize({

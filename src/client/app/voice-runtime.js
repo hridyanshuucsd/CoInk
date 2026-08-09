@@ -121,6 +121,66 @@
     };
   }
 
+  function voiceMathOperation(value) {
+    const source = String(value || "").trim().replace(/\s+/g, " ");
+    if (!source) return "";
+    const compact = source.replace(/\s+/g, ""),
+      subtract = /^(?:subtract|minus)\s+(.+)$/i.exec(source),
+      add = /^(?:add|plus)\s+(.+)$/i.exec(source),
+      divide = /^(?:divide\s+by|divided\s+by)\s+(.+)$/i.exec(source),
+      multiply = /^(?:multiply\s+by|times)\s+(.+)$/i.exec(source);
+    if (subtract) return `\u2212${subtract[1].trim()}`;
+    if (add) return `+${add[1].trim()}`;
+    if (divide) return `\u00f7${divide[1].trim()}`;
+    if (multiply) return `\u00d7${multiply[1].trim()}`;
+    if (/^[-\u2212]/.test(compact)) return `\u2212${compact.slice(1)}`;
+    if (/^(?:\/|\u00f7)/.test(compact)) return `\u00f7${compact.slice(1)}`;
+    if (/^(?:\*|\u00d7)/.test(compact)) return `\u00d7${compact.slice(1)}`;
+    return compact;
+  }
+
+  function voiceMathWorkCommand(input, visible, scale = 1) {
+    if (!input || !visible || !Array.isArray(input.steps)) return null;
+    const steps = input.steps.slice(0, 8).map((step) => {
+      const equation = String(step?.equation || "").trim().replace(/\s*=\s*/g, " = ").replace(/\s+/g, " "),
+        operation = voiceMathOperation(step?.operation);
+      return equation && equation.split("=").length === 2 ? { equation, ...(operation ? { operation } : {}) } : null;
+    }).filter(Boolean);
+    if (!steps.length) return null;
+    const safeScale = Math.max(.03, Math.min(2, Number(scale) || 1)),
+      fontSize = Math.max(48, Math.min(650, Math.max(Number(input.fontSize) || 180, 42 / safeScale))),
+      padding = 24 / safeScale,
+      gap = Math.max(28 / safeScale, fontSize * .65),
+      longestEquation = Math.max(...steps.map((step) => Array.from(step.equation).length)),
+      estimatedWidth = Math.min(visible.w - padding * 2, Math.max(fontSize * 5, longestEquation * fontSize * .62)),
+      estimatedHeight = steps.reduce((height, step) => height + fontSize * (step.operation ? 2.05 : 1.2), padding * 2),
+      target = input.target && [input.target.x, input.target.y, input.target.w, input.target.h].every(Number.isFinite) ? input.target : null,
+      placement = ["above", "below", "left", "right", "inside", "auto"].includes(input.placement) ? input.placement : "auto",
+      requestedX = Number(input.x),
+      requestedY = Number(input.y);
+    let x = Number.isFinite(requestedX) ? requestedX : visible.x + padding,
+      y = Number.isFinite(requestedY) ? requestedY : visible.y + padding;
+    if ((!Number.isFinite(requestedX) || !Number.isFinite(requestedY)) && target) {
+      const chosen = placement === "auto"
+        ? target.y + target.h + gap + estimatedHeight <= visible.y + visible.h ? "below" : "right"
+        : placement;
+      if (chosen === "below") { x = target.x; y = target.y + target.h + gap; }
+      else if (chosen === "above") { x = target.x; y = target.y - estimatedHeight - gap; }
+      else if (chosen === "right") { x = target.x + target.w + gap; y = target.y; }
+      else if (chosen === "left") { x = target.x - estimatedWidth - gap; y = target.y; }
+      else { x = target.x + gap; y = target.y + gap; }
+    }
+    return {
+      ...input,
+      tool:"math_work",
+      steps,
+      x:Math.max(visible.x + padding, Math.min(visible.x + visible.w - estimatedWidth - padding, x)),
+      y:Math.max(visible.y + padding, Math.min(visible.y + visible.h - estimatedHeight - padding, y)),
+      fontSize,
+      lineHeight:Math.max(1, Math.min(2.2, Number(input.lineHeight) || 1.25)),
+    };
+  }
+
   function voiceCanvasObstacleBoxes(visible) {
     const boxes = [visibleInkBounds(visible), imageBounds(visible), textBoxBounds(visible), animationBounds(visible)].filter(Boolean);
     for (const widget of state.widgets || []) {
@@ -132,11 +192,16 @@
     return boxes;
   }
 
+  function voiceCommandKey(command) {
+    if (command?.tool === "handwrite_text") return `text:${String(command.text || "").trim().toLowerCase()}`;
+    if (command?.tool === "math_work") return `math:${JSON.stringify(command.steps || []).toLowerCase()}`;
+    return "";
+  }
+
   function pendingVoiceTexts() {
     const pending = state.pending?.items || (state.pending ? [pendingSingleItem(state.pending)] : []);
     return new Set(pending
-      .filter((item) => item.command?.tool === "handwrite_text")
-      .map((item) => String(item.command.text || "").trim().toLowerCase())
+      .map((item) => voiceCommandKey(item.command))
       .filter(Boolean));
   }
 
@@ -148,11 +213,15 @@
       visible = viewportRect(),
       occupied = visible ? visibleInkBounds(visible) : null,
       normalized = raw
-        .map((command, index) => command?.tool === "handwrite_text" ? voiceHandwritingCommand(command, visible, occupied, index, state.scale) : command)
+        .map((command, index) => command?.tool === "handwrite_text"
+          ? voiceHandwritingCommand(command, visible, occupied, index, state.scale)
+          : command?.tool === "math_work"
+            ? voiceMathWorkCommand(command, visible, state.scale)
+            : command)
         .filter(Boolean),
       duplicateTexts = pendingVoiceTexts(),
       commands = validate(normalized, state.aiColor, null, visible)
-        .filter((command) => command.tool !== "handwrite_text" || !duplicateTexts.has(command.text.trim().toLowerCase())),
+        .filter((command) => !duplicateTexts.has(voiceCommandKey(command))),
       revision = state.userRevision,
       meta = { requestId:`voice-${Date.now()}` };
     if (!commands.length) return duplicateTexts.size
