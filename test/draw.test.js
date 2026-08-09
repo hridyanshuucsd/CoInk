@@ -61,6 +61,19 @@ test("uses the swept arc rather than a full ellipse for bounds", () => {
   assert.deepEqual(command._draw.bounds, { x: 981, y: 981, right: 1119, bottom: 1069, w: 138, h: 88 });
 });
 
+test("normalizes drawings on either side of the edgeless origin", () => {
+  const command = DRAW.normalize(
+    { tool: "draw", origin: [-24000, -16000], types: ["line"], items: [[0, 0, 800, 400]] },
+    { maxExtent: 20000, coordinateLimit: 10000000 },
+  );
+
+  assert.ok(command);
+  assert.ok(command.x < 0);
+  assert.ok(command.y < 0);
+  assert.equal(command._draw.primitives[0].points[0].x, -24000);
+  assert.equal(command._draw.primitives[0].points[0].y, -16000);
+});
+
 test("rejects malformed, fractional, incompatible, and out-of-canvas data", () => {
   assert.equal(DRAW.normalize({ tool: "draw", origin: [0.5, 0], types: ["line"], items: [[0, 0, 10, 10]] }), null);
   assert.equal(DRAW.normalize({ tool: "draw", origin: [0, 0], types: ["line"], items: [[0, 0, 10.5, 10]] }), null);

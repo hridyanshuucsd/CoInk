@@ -30,6 +30,15 @@ test("selection movement stays within the logical canvas", () => {
   assert.deepEqual(selection.moveBox(box, 12, -8, 100), { x: 32, y: 22, w: 40, h: 25 });
 });
 
+test("edgeless selections retain signed coordinates while enforcing numeric safety", () => {
+  const bounds = { min: -10000000, max: 10000000 },
+    path = [{ x: -24050.4, y: -130.9 }, { x: -23200.2, y: 420.1 }, { x: -23800, y: 750 }];
+
+  assert.deepEqual(selection.clipPoint({ x: -24000, y: -300 }, bounds), { x: -24000, y: -300 });
+  assert.deepEqual(selection.polygonBounds(path, bounds), { x: -24051, y: -131, w: 851, h: 881 });
+  assert.deepEqual(selection.moveBox({ x: -500, y: -400, w: 200, h: 100 }, -250, -150, bounds), { x: -750, y: -550, w: 200, h: 100 });
+});
+
 test("selection resize is uniform and respects minimum and canvas bounds", () => {
   const box = { x: 10, y: 20, w: 40, h: 20 };
   assert.deepEqual(selection.resizeBox(box, { x: 90, y: 35 }, 10, 100), { x: 10, y: 20, w: 80, h: 40 });
