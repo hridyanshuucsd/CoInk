@@ -25,7 +25,11 @@ test("Realtime voice uses an official selected OpenAI connection without exposin
   assert.deepEqual(session.tools.map(tool => tool.name), ["write_on_canvas", "canvas_commands", "verify_math"]);
   assert.deepEqual(WRITE_ON_CANVAS_TOOL.parameters.required, ["text"]);
   assert.match(WRITE_ON_CANVAS_TOOL.description, /whenever the student asks/i);
+  assert.deepEqual(WRITE_ON_CANVAS_TOOL.parameters.properties.placement.enum, ["auto", "above", "below", "left", "right", "inside"]);
+  assert.deepEqual(WRITE_ON_CANVAS_TOOL.parameters.properties.target.required, ["x", "y", "w", "h"]);
   assert.match(session.instructions, /never say that you cannot write or draw/i);
+  assert.match(session.instructions, /at most one canvas tool call per student turn/i);
+  assert.match(session.instructions, /do not repeat it/i);
   assert.doesNotMatch(JSON.stringify(session), /sk-private/);
 });
 
