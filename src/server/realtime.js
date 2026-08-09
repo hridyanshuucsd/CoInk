@@ -32,7 +32,7 @@ const WRITE_ON_CANVAS_TOOL = Object.freeze({
 const CANVAS_COMMANDS_TOOL = Object.freeze({
   type:"function",
   name:"canvas_commands",
-  description:"Place a short handwritten note or simple visual mark on the shared canvas while you speak. Coordinates are global logical CoInk coordinates described in the latest silent canvas context.",
+  description:"Place one semantic math derivation, short handwritten note, or simple visual mark on the shared canvas while you speak. Coordinates are global logical CoInk coordinates described in the latest silent canvas context.",
   parameters:{
     type:"object",
     properties:{
@@ -42,7 +42,7 @@ const CANVAS_COMMANDS_TOOL = Object.freeze({
         items:{
           type:"object",
           properties:{
-            tool:{ type:"string", enum:["handwrite_text", "draw"] },
+            tool:{ type:"string", enum:["handwrite_text", "math_work", "draw"] },
             x:{ type:"number" }, y:{ type:"number" },
             text:{ type:"string", description:"For handwrite_text: a short note, usually 2–12 words." },
             fontSize:{ type:"number" }, maxWidth:{ type:"number" }, lineHeight:{ type:"number" },
@@ -51,6 +51,20 @@ const CANVAS_COMMANDS_TOOL = Object.freeze({
               type:"object",
               properties:{ x:{ type:"number" }, y:{ type:"number" }, w:{ type:"number" }, h:{ type:"number" } },
               required:["x", "y", "w", "h"],
+            },
+            steps:{
+              type:"array",
+              minItems:1,
+              maxItems:8,
+              description:"For math_work: ordered equation states. Put the same operation applied to both sides on the state before its result. Do not add alignment spaces.",
+              items:{
+                type:"object",
+                properties:{
+                  equation:{ type:"string", description:"One complete equation containing exactly one equals sign, such as 5x + 3 = 8." },
+                  operation:{ type:"string", description:"Optional operation applied equally to both sides before the next equation, such as -3, +2, divide by 5, or multiply by 4." },
+                },
+                required:["equation"],
+              },
             },
             origin:{ type:"array", items:{ type:"integer" }, minItems:2, maxItems:2 },
             types:{ type:"array", items:{ type:"string", enum:["line", "smooth", "rect", "ellipse", "circle", "arc"] } },
@@ -87,7 +101,7 @@ const REALTIME_INSTRUCTIONS = `You are CoInk, a private live tutor sharing a vis
 
 Silent canvas-context messages contain a current canvas image plus its exact global logical rectangle. Absorb them without responding to the context item alone. Dark ink is usually the student's work; blue ink is usually yours. You can handwrite with write_on_canvas and make simple visual marks with canvas_commands. Whenever the student explicitly asks you to write, show work, label, draw, circle, underline, or mark something on the canvas, call the appropriate canvas tool in that same turn. Never say that you cannot write or draw on the canvas.
 
-Canvas action contract: Make at most one canvas tool call per student turn. Put every related mark in one canvas_commands array, or put the entire short note in one write_on_canvas text value; never reveal a note through repeated calls or repeat the same text. For a local annotation, infer the referenced work's global target rectangle from the latest canvas image and set target plus placement; exact x/y are optional. Keep prose notes concise, preserve useful line breaks, and write only one meaningful tutoring step ahead unless the student asks for a full solution. After a tool result reports drafted or already_drafted, do not repeat it and continue with a brief spoken response. If it returns a non-retryable error, do not retry that turn. Never say you wrote or marked something unless the tool returned ok. The app displays one complete, non-overlapping, editable draft for the student to accept.
+Canvas action contract: Make at most one canvas tool call per student turn. Put every related mark in one canvas_commands array, or put the entire short note in one write_on_canvas text value; never reveal a note through repeated calls or repeat the same text. For multi-line algebra, use one semantic math_work command with ordered steps; never imitate columns with spaces, never put an operation in its own unrelated handwriting command, and never repeat the derivation as prose on the canvas. Each step's equation is the current state. Its optional operation is the operation applied equally to both sides before the next equation. For a local annotation, infer the referenced work's global target rectangle from the latest canvas image and set target plus placement; exact x/y are optional. Keep prose notes concise, preserve useful line breaks, and write only one meaningful tutoring step ahead unless the student asks for a full solution. After a tool result reports drafted or already_drafted, do not repeat it and continue with a brief spoken response. If it returns a non-retryable error, do not retry that turn. Never say you wrote or marked something unless the tool returned ok. The app displays one complete, non-overlapping, editable draft for the student to accept.
 
 Before asserting that arithmetic, an algebraic identity, an equation, or a transformation is correct or incorrect, call verify_math. Treat its exact result as evidence and explain it at the student's level. The verifier supports exact rational polynomial algebra; if it reports an unsupported form, say that you need to reason about that form separately rather than pretending it was verified.
 
