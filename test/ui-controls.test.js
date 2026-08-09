@@ -680,14 +680,15 @@ test("client widget validation matches the server tolerance boundary", () => {
   const app = read("public/app.js"),
     server = read("src/server/main.js"),
     geometryGuide = vm.runInNewContext(`(${functionSource(app, "widgetGeometryForViewport")})`, { SIZE:20000 }),
-    fitGeometry = vm.runInNewContext(`(${functionSource(app, "fitWidgetGeometry")})`, { SIZE:20000, widgetGeometryForViewport:geometryGuide }),
+    worldCoordinate = (value, extent = 0) => Math.max(-10000000, Math.min(10000000 - Math.max(0, extent), Number(value) || 0)),
+    fitGeometry = vm.runInNewContext(`(${functionSource(app, "fitWidgetGeometry")})`, { SIZE:20000, widgetGeometryForViewport:geometryGuide, worldCoordinate }),
     resizeImage = vm.runInNewContext(`(${functionSource(app, "resizeImageBox")})`, { SIZE:20000 });
   assert.deepEqual({ ...geometryGuide({ w:3000, h:3000 }).max }, { w:1500, h:1500 });
   assert.deepEqual({ ...geometryGuide({ w:3001, h:3001 }).max }, { w:2000, h:2000 });
   assert.deepEqual({ ...fitGeometry({ x:100, y:200, w:10000, h:20000 }, { w:10000, h:10000 }) }, { x:100, y:200, w:2500, h:5000 });
   assert.deepEqual({ ...fitGeometry({ x:100, y:200, w:6800, h:2200 }, { w:10000, h:10000 }) }, { x:100, y:200, w:6800, h:2200 });
   assert.deepEqual({ ...fitGeometry({ x:100, y:200, w:8000, h:6000 }, { w:20000, h:20000 }) }, { x:100, y:200, w:7302, h:5477 });
-  assert.deepEqual({ ...fitGeometry({ x:30000, y:-500, w:2, h:3 }, { w:10000, h:10000 }) }, { x:19700, y:0, w:300, h:450 });
+  assert.deepEqual({ ...fitGeometry({ x:30000, y:-500, w:2, h:3 }, { w:10000, h:10000 }) }, { x:30000, y:-500, w:300, h:450 });
   assert.deepEqual({ ...resizeImage({ x:100, y:200, w:1200, h:800 }, { x:15100, y:10200 }, "resize") }, { x:100, y:200, w:15000, h:10000 });
   assert.doesNotMatch(functionSource(app, "resizeImageBox"), /5000|10000|40000000|maximumArea/);
   assert.doesNotMatch(functionSource(app, "resizeWidgetBox"), /5000|10000|40000000|maximumArea/);
@@ -943,7 +944,7 @@ test("live widgets use native canvas chrome, state-aware iframe gestures, and th
   assert.deepEqual({ ...height }, { x:100, y:200, w:1200, h:1100, contentW:1200, contentH:1100 });
   assert.deepEqual({ ...corner }, { x:100, y:200, w:2400, h:1600, contentW:1200, contentH:800 });
   assert.deepEqual({ ...minimum }, { x:100, y:200, w:300, h:200, contentW:1200, contentH:800 });
-  assert.deepEqual({ ...bounded }, { x:18500, y:19000, w:1500, h:1000, contentW:1200, contentH:800 });
+  assert.deepEqual({ ...bounded }, { x:18500, y:19000, w:4500, h:3000, contentW:1200, contentH:800 });
   assert.deepEqual({ ...scaledWidth }, { x:100, y:200, w:900, h:400, contentW:1800, contentH:800 });
   assert.deepEqual({ ...scaledHeight }, { x:100, y:200, w:600, h:600, contentW:1200, contentH:1200 });
   assert.deepEqual({ ...unrestrictedWidth }, { x:100, y:200, w:15000, h:800, contentW:15000, contentH:800 });
